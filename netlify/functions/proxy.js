@@ -1,10 +1,10 @@
-// This is a temporary backend function for testing the Milestones AND Deliverables DB connections.
+// This is a temporary backend function for testing all THREE database connections.
 
 exports.handler = async (event) => {
     const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' };
     
     // --- CONFIGURATION ---
-    const { NOTION_API_KEY, MILESTONES_DB_ID, DELIVERABLES_DB_ID } = process.env;
+    const { NOTION_API_KEY, MILESTONES_DB_ID, DELIVERABLES_DB_ID, PAYMENTS_DB_ID } = process.env;
 
     const queryNotionDB = async (databaseId, propertyName) => {
         // This helper function will test one database at a time.
@@ -12,7 +12,6 @@ exports.handler = async (event) => {
             return { success: false, error: `Configuration Error: The Database ID for this test is missing from Netlify environment variables.` };
         }
         try {
-            // We only need the NOTION_API_KEY for this helper function
             if (!NOTION_API_KEY) {
                  return { success: false, error: `Configuration Error: The NOTION_API_KEY is missing.` };
             }
@@ -43,19 +42,21 @@ exports.handler = async (event) => {
         }
     };
 
-    // Run both tests in parallel to be efficient.
-    const [milestonesResult, deliverablesResult] = await Promise.all([
+    // Run all three tests in parallel.
+    const [milestonesResult, deliverablesResult, paymentsResult] = await Promise.all([
         queryNotionDB(MILESTONES_DB_ID, 'MilestoneTitle'),
-        queryNotionDB(DELIVERABLES_DB_ID, 'Deliverable Name')
+        queryNotionDB(DELIVERABLES_DB_ID, 'Deliverable Name'),
+        queryNotionDB(PAYMENTS_DB_ID, 'Payment For')
     ]);
 
-    // Return a structured result for both tests.
+    // Return a structured result for all tests.
     return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
             milestones: milestonesResult,
-            deliverables: deliverablesResult
+            deliverables: deliverablesResult,
+            payments: paymentsResult
         })
     };
 };
