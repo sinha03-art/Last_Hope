@@ -97,10 +97,14 @@
         }
 
         function renderGates(data) {
+            const deliverableStatusPriority = { 'Missing': 1, 'Rejected': 2, 'Submitted': 3, 'Approved': 4 };
+            
             gatesSection.innerHTML = GATES_CONFIG.map((gate, index) => {
                 const gateMilestones = data.milestones.filter(m => m.phase === gate.id);
-                const gateDeliverables = data.deliverables.filter(d => d.gate === gate.id);
-                const isGateComplete = gateMilestones.every(m => m.status === 'Complete') && gateDeliverables.every(d => d.status === 'Approved');
+                const gateDeliverables = data.deliverables.filter(d => d.gate === gate.id)
+                    .sort((a,b) => deliverableStatusPriority[a.status] - deliverableStatusPriority[b.status]);
+
+                const isGateComplete = gateMilestones.length > 0 && gateMilestones.every(m => m.status === 'Complete') && gateDeliverables.every(d => d.status === 'Approved');
                 
                 return `
                 <details class="gate-accordion bg-slate-900/70 backdrop-blur-sm border border-slate-800 rounded-lg overflow-hidden" ${index === 0 ? 'open' : ''}>
@@ -157,7 +161,7 @@
                 const isOutstanding = p.status === 'Outstanding';
                 const cardColor = isOverdue ? 'bg-red-900/30 border-red-500/30' : isOutstanding ? 'bg-amber-900/30 border-amber-500/30' : 'bg-slate-800/50 border-slate-700';
                 const titleColor = isOverdue ? 'text-red-300' : 'text-slate-100';
-                const statusColor = isOverdue ? 'text-red-400' : isOutstanding ? 'text-amber-400' : 'text-sky-400';
+                const statusColor = isOverdue ? 'text-red-400' : isOutstanding ? 'text-amber-400' : 'text-green-400';
                 return `<div class="p-4 rounded-md border ${cardColor} backdrop-blur-sm"><div class="flex justify-between items-center"><div><p class="font-bold ${titleColor}">${p.title}</p><p class="text-sm text-slate-400">${p.vendor}</p></div><div class="text-right"><p class="font-semibold text-lg text-slate-100">${formatCurrency(p.amount)}</p><p class="text-sm font-bold ${statusColor}">${p.status}</p></div></div><p class="text-xs text-slate-500 mt-2">Due: ${formatDate(p.dueDate)}</p></div>`;
             };
             upcomingPaymentsContainer.innerHTML = upcoming.length ? upcoming.map(paymentCard).join('') : '<p class="text-sm text-slate-500">No upcoming payments.</p>';
@@ -234,8 +238,14 @@
                 });
                 if (!response.ok) { throw new Error(await response.text() || 'Request failed.'); }
                 const result = await response.json();
-                modalContent.innerHTML = result.text.replace(/\n/g, '<br>');
+                modalContent.innerHTML = result.text.replace(/\n/g, '<br>'); // Simple formatting
             } catch (error) {
                 console.error('Gemini API Error:', error);
-                modalContent.innerHTML = `<div class="bg-red-500/20 text-red-400 p-4 rounded-md"><p
+                modalContent.innerHTML = `<div class="bg-red-500/20 text-red-400 p-4 rounded-md"><p><strong>Error:</strong> Could not get a response from the AI assistant.</p><p class="mt-2 text-sm">${error.message}</p></div>`;
+            }
+        }
+        generateSummaryBtn.addEventListener('click', () => { if (projectData) { callGeminiAPI('summary', projectData); }});
+    </script>
+</body>
+</html>
 

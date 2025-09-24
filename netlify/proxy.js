@@ -2,31 +2,36 @@ const { GEMINI_API_KEY, NOTION_API_KEY, MILESTONES_DB_ID, DELIVERABLES_DB_ID, PA
 
 async function callGemini(prompt) {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-    const apiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
+    const apiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+    );
     if (!apiResponse.ok) { throw new Error(`Gemini API responded with status: ${apiResponse.status}`); }
     const data = await apiResponse.json();
     return data.candidates[0].content.parts[0].text;
 }
 
-// UPDATED with your "drop-in patch" to prevent sending empty filter/sort objects
 async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) {
     const body = {};
     if (filter && Object.keys(filter).length > 0) body.filter = filter;
     if (sorts && sorts.length > 0) body.sorts = sorts;
 
-    const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${NOTION_API_KEY}`,
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
+    const response = await fetch(
+        `https://api.notion.com/v1/databases/${databaseId}/query`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${NOTION_API_KEY}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        }
+    );
     if (!response.ok) {
         const errorBody = await response.json();
         console.error(`Notion API Error for DB ${databaseId}:`, errorBody);
@@ -36,12 +41,32 @@ async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) 
 }
 
 exports.handler = async (event) => {
-    const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
+    // --- DEBUGGING: Verify Environment Variables ---
+    console.log("--- Verifying Environment Variables ---");
+    console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
+    console.log("NOTION_API_KEY present:", !!process.env.NOTION_API_KEY);
+    console.log("MILESTONES_DB_ID present:", !!process.env.MILESTONES_DB_ID);
+    console.log("DELIVERABLES_DB_ID present:", !!process.env.DELIVERABLES_DB_ID);
+    console.log("PAYMENTS_DB_ID present:", !!process.env.PAYMENTS_DB_ID);
+    console.log("CONFIG_DB_ID present:", !!process.env.CONFIG_DB_ID);
+    console.log("------------------------------------");
+
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    };
     if (event.httpMethod === 'OPTIONS') { return { statusCode: 204, headers }; }
 
     try {
         if (event.httpMethod === 'POST') {
-             const { type, data } = JSON.parse(event.body);
+             let type, data;
+             try {
+                ({ type, data } = JSON.parse(event.body || '{}'));
+             } catch {
+                return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+             }
+
             let prompt = '';
             if (type === 'summary') {
                 const kpiText = `Paid vs Budget: ${(data.kpis.paidVsBudget * 100).toFixed(1)}%, Deliverables: ${(data.kpis.deliverablesProgress * 100).toFixed(0)}% approved, Over Budget Items: ${data.kpis.overBudgetCount}, Milestones At Risk: ${data.kpis.milestonesAtRisk}.`;
@@ -61,7 +86,6 @@ exports.handler = async (event) => {
                 throw new Error("Configuration error: One or more database IDs are not set in environment variables.");
             }
 
-            // UPDATED calls to queryNotionDB
             const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
                 queryNotionDB(MILESTONES_DB_ID, undefined, [{ property: 'StartDate', direction: 'ascending' }]),
                 queryNotionDB(DELIVERABLES_DB_ID),
@@ -89,9 +113,9 @@ exports.handler = async (event) => {
             const payments = paymentsData.results.map(p => ({
                 id: p.id,
                 title: p.properties['Payment For']?.title[0]?.plain_text ?? 'Untitled',
-                vendor: p.properties.Vendor?.rich_text[0]?.plain_text ?? 'N/A',
+                vendor: p.properties.Vendor?.rich_text?.[0]?.plain_text ?? p.properties.Vendor?.title?.[0]?.plain_text ?? 'N/A',
                 amount: p.properties['Amount (RM)']?.number ?? 0,
-                status: p.properties.Status?.select?.name ?? 'Outstanding', // Hardened fallback
+                status: p.properties.Status?.select?.name ?? 'Outstanding',
                 dueDate: p.properties.DueDate?.date?.start ?? null,
                 paidDate: p.properties.PaidDate?.date?.start ?? null,
             }));
@@ -108,13 +132,16 @@ exports.handler = async (event) => {
             const overBudgetCount = milestones.filter(m => m.indicator.includes('Over budget')).length;
             const deliverablesApproved = deliverables.filter(d => d.status === 'Approved').length;
             
-            // Hardened guard for launch date
             const launchRaw = config['Project Launch Date'];
             const launchDate = launchRaw ? new Date(launchRaw) : null;
-            const daysToLaunch = launchDate ? Math.ceil((launchDate - new Date()) / (1000 * 60 * 60 * 24)) : 'TBD';
+            let daysToLaunchVal = 'TBD';
+            if(launchDate) {
+                const d = Math.ceil((launchDate - new Date()) / (1000 * 60 * 60 * 24));
+                daysToLaunchVal = d > 0 ? d : 'Launched';
+            }
             
             const kpis = {
-                daysToLaunch: daysToLaunch > 0 ? daysToLaunch : 'Launched',
+                daysToLaunch: daysToLaunchVal,
                 paidVsBudget: totalBudget > 0 ? totalPaidSpent / totalBudget : 0,
                 deliverablesProgress: deliverables.length > 0 ? deliverablesApproved / deliverables.length : 0,
                 overBudgetCount: overBudgetCount,
