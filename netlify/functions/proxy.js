@@ -1,127 +1,86 @@
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
-
-const CONFIG_DB_ID = process.env.CONFIG_DB_ID || "[Project Config](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/e99269c204bd47749e8e0f144651cdf7?db=5ed0e89ba8484377bbaa1ce74f478574&pvs=21)";
-
-const MILESTONES_DB_ID = process.env.MILESTONES_DB_ID || "[Project Milestones](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/be255c8aba634d0b9a7d68b152fb7c2e?db=13262b8e4fea4a969d03c9032e99088f&pvs=21)";
-
-const DELIVERABLES_DB_ID = process.env.DELIVERABLES_DB_ID || "[Gate Deliverables](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/91c8fc8aeafa4015b47e814f27ea45fc?db=d754a179028046b4a8040c7153935558&pvs=21)";
-
-const PAYMENT_DB_ID = process.env.PAYMENT_DB_ID || "[Payment Schedule](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/0032bf7e1db04b6bad248721a81fff04?db=7f679ba982e24ad4bcc194b106cbfb3b&pvs=21)";
+const CONFIG_DB_ID = process.env.CONFIG_DB_ID;
+const MILESTONES_DB_ID = process.env.MILESTONES_DB_ID;
+const DELIVERABLES_DB_ID = process.env.DELIVERABLES_DB_ID;
+const PAYMENT_DB_ID = process.env.PAYMENT_DB_ID;
 
 const NOTION_VERSION = "2022-06-28";
 
-async function notionQuery(databaseId, body = {}) {
-
-const url = "https://api.notion.com/v1/databases/" + databaseId + "/query";
-
-const res = await fetch(url, {
-
-method: "POST",
-
-headers: {
-
-"Authorization": "Bearer " + NOTION_API_KEY,
-
-"Notion-Version": NOTION_VERSION,
-
-"Content-Type": "application/json",
-
-},
-
-body: JSON.stringify({ page_size: 25, ...body }),
-
-});
-
-if (!res.ok) {
-
-let detail = await res.text().catch(() => "");
-
-throw new Error(`Notion ${res.status}: ${detail}`);
-
+// Helper function for CORS headers
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
 }
 
-return res.json();
+async function notionQuery(databaseId, body = {}) {
+  // Check if databaseId is valid before proceeding
+  if (!databaseId || typeof databaseId !== 'string' || databaseId.length !== 32) {
+    throw new Error("Invalid Notion database ID provided: " + databaseId);
+  }
 
+  const url = "https://api.notion.com/v1/databases/" + databaseId + "/query";
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + NOTION_API_KEY,
+      "Notion-Version": NOTION_VERSION,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ page_size: 25, ...body }),
+  });
+
+  if (!res.ok) {
+    let detail = await res.text().catch(() => "");
+    throw new Error(`Notion API Error ${res.status}: ${detail}`);
+  }
+
+  return res.json();
 }
 
 exports.handler = async (event) => {
+  try {
+    if (!NOTION_API_KEY) {
+      return {
+        statusCode: 500,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Missing NOTION_API_KEY environment variable." }),
+      };
+    }
 
-try {
+    const url = new URL(event.rawUrl || ("https://x" + (event.path || "") + (event.queryStringParameters ? "?" + new URLSearchParams(event.queryStringParameters) : "")));
+    const type = (url.searchParams.get("type") || "").toLowerCase(); // Changed default to empty string
 
-if (!NOTION_API_KEY) {
+    let dbId;
+    if (type === "milestones") dbId = MILESTONES_DB_ID;
+    else if (type === "deliverables") dbId = DELIVERABLES_DB_ID;
+    else if (type === "payments") dbId = PAYMENT_DB_ID;
+    else if (type === "config") dbId = CONFIG_DB_ID;
+    else {
+      return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Unknown or missing 'type' parameter. Expected: milestones, deliverables, payments, or config." }) };
+    }
 
-return {
+    // Ensure the specific DB ID for the requested type is set
+    if (!dbId) {
+      return { statusCode: 500, headers: corsHeaders(), body: JSON.stringify({ error: `Missing environment variable for ${type.toUpperCase()}_DB_ID.` }) };
+    }
 
-statusCode: 500,
+    const data = await notionQuery(dbId);
 
-headers: corsHeaders(),
-
-body: JSON.stringify({ error: "Missing NOTION_API_KEY" }),
-
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders(), "content-type": "application/json", "cache-control": "no-store" },
+      body: JSON.stringify(data),
+    };
+  } catch (err) {
+    console.error("Proxy Function Error:", err); // Log the full error for debugging
+    return {
+      statusCode: 500,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "Proxy error", detail: err.message || String(err) }),
+    };
+  }
 };
-
-}
-
-const url = new URL(event.rawUrl || ("https://x" + (event.path || "") + (event.queryStringParameters ? "?" + new URLSearchParams(event.queryStringParameters) : "")));
-
-const type = (url.searchParams.get("type") || "milestones").toLowerCase();
-
-let dbId;
-
-if (type === "milestones") dbId = MILESTONES_DB_ID;
-
-else if (type === "deliverables") dbId = DELIVERABLES_DB_ID;
-
-else if (type === "payments") dbId = PAYMENT_DB_ID;
-
-else if (type === "config") dbId = CONFIG_DB_ID;
-
-else {
-
-return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Unknown type" }) };
-
-}
-
-// You can add per-type filters here later if needed
-
-const data = await notionQuery(dbId);
-
-return {
-
-statusCode: 200,
-
-headers: { ...corsHeaders(), "content-type": "application/json", "cache-control": "no-store" },
-
-body: JSON.stringify(data),
-
-};
-
-} catch (err) {
-
-return {
-
-statusCode: 500,
-
-headers: corsHeaders(),
-
-body: JSON.stringify({ error: "Proxy error", detail: err.message }),
-
-};
-
-}
-
-};
-
-function corsHeaders() {
-
-return {
-
-"Access-Control-Allow-Origin": "*",
-
-"Access-Control-Allow-Methods": "GET,OPTIONS",
-
-"Access-Control-Allow-Headers": "Content-Type, Authorization",
-
-};
-
-}
