@@ -82,41 +82,23 @@ return r.json();
 }
 
 function renderMilestones(data) {
-
-const el = $('milestones'); el.innerHTML = '';
-
+const el = document.getElementById('milestones');
+el.innerHTML = '';
 const rows = (data.results || []).slice(0, 12);
-
 if (rows.length === 0) { el.textContent = 'No milestones'; return; }
-
 rows.forEach(p => {
-
-const props = [p.properties](http://p.properties) || {};
-
-const title = get(props, 'MilestoneTitle.title.0.plain_text', '(untitled)');
-
-const phase = get(props, '[Phase.select.name](http://Phase.select.name)', '-');
-
-const status = get(props, '[Status.select.name](http://Status.select.name)', '-');
-
-const pv = get(props, 'Paid vs Budget (%).formula.number', 0) || 0;
-
+const props  = p.properties || {};
+const title  = get(props, 'MilestoneTitle.title.0.plain_text', '(untitled)');
+const phase  = get(props, 'Phase.select.name', '-');
+const status = get(props, 'Status.select.name', '-');
+const pv     = get(props, 'Paid vs Budget (%).formula.number', 0) || 0;
 const div = document.createElement('div');
-
 div.className = 'row';
-
-div.innerHTML = `
-
-<div><strong>${title}</strong></div>
-
-<div class="sub">${phase} • ${status}</div>
-
-<div class="kpis">Paid vs Budget: ${pv.toFixed(2)}</div>
-
-`;
-
+div.innerHTML =
+'<div><strong>' + title + '</strong></div>' +
+'<div class="sub">' + phase + ' • ' + status + '</div>' +
+'<div class="kpis">Paid vs Budget: ' + pv.toFixed(2) + '</div>';
 el.appendChild(div);
-
 });
 
 }
