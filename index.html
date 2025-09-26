@@ -56,90 +56,171 @@ footer { margin-top: 16px; color: var(--muted); font-size: 12px; }
 Tip: Click Load to refresh. Values reflect your Notion databases in real time.
 </footer>
 <script>
+
 const $ = (id) => document.getElementById(id);
+
 function get(obj, path, dflt=null){try{const parts=path.split('.');let cur=obj;for(const k of parts){if(cur==null) return dflt;cur = cur[k];}return cur??dflt;}catch{return dflt;}}
+
 async function j(url, opts){const r=await fetch(url, opts); if(!r.ok) throw new Error(await r.text()); return r.json();}
+
 function renderMilestones(data){
+
 const el = $('milestones'); el.innerHTML = '';
+
 const rows = (data.results||[]).slice(0,12);
+
 if(rows.length===0){ el.textContent='No milestones'; return; }
+
 rows.forEach(p=>{
-const props=p.properties||{};
-const title=get(props,'MilestoneTitle.title.0.plain_text','(untitled)');
-const phase=get(props,'Phase.select.name','-');
-const status=get(props,'Status.select.name','-');
-const pv=get(props,'Paid vs Budget (%).formula.number',0) || 0;
-const badge = pv >= 1 ? 'warn' : 'ok';
+
+const props=[p.properties](http://p.properties)||{};
+
+const title = get(props,'MilestoneTitle.title.0.plain_text','(untitled)');
+
+const phase = get(props,'[Phase.select.name](http://Phase.select.name)','-');
+
+const status= get(props,'[Status.select.name](http://Status.select.name)','-');
+
+const pv    = get(props,'Paid vs Budget (%).formula.number',0) || 0;
+
 const div=document.createElement('div');
+
 div.className='row';
-div.innerHTML = `
-<div><strong>${title}</strong></div>
+
+div.innerHTML = `<div><strong>${title}</strong></div>
+
 <div class="sub">${phase} • ${status}</div>
-<div class="kpis">Paid vs Budget: ${(pv).toFixed(2)}</div>
-`;
+
+<div class="kpis">Paid vs Budget: ${(pv).toFixed(2)}</div>`;
+
 el.appendChild(div);
+
 });
+
 }
+
 function renderDeliverables(data){
+
 const el = $('deliverables'); el.innerHTML='';
+
 const rows=(data.results||[]).slice(0,12);
+
 if(rows.length===0){ el.textContent='No deliverables'; return; }
+
 rows.forEach(p=>{
-const props=p.properties||{};
-const name=get(props,'Deliverable Name.title.0.plain_text','(untitled)');
-const gate=get(props,'Gate.select.name','-');
-const st=get(props,'Status.select.name','-');
+
+const props=[p.properties](http://p.properties)||{};
+
+const name = get(props,'Deliverable Name.title.0.plain_text','(untitled)');
+
+const gate = get(props,'[Gate.select.name](http://Gate.select.name)','-');
+
+const st   = get(props,'[Status.select.name](http://Status.select.name)','-');
+
 const div=document.createElement('div'); div.className='row';
-div.innerHTML=<div><strong>${name}</strong></div><div class="sub">${gate} • <span class="pill">${st}</span></div>;
+
+div.innerHTML=`<div><strong>${name}</strong></div>
+
+<div class="sub">${gate} • ${st}</div>`;
+
 el.appendChild(div);
+
 });
+
 }
+
 function renderPayments(data){
+
 const el = $('payments'); el.innerHTML='';
+
 const rows=(data.results||[]).slice(0,12);
+
 if(rows.length===0){ el.textContent='No payments'; return; }
+
 rows.forEach(p=>{
-const props=p.properties||{};
-const title=get(props,'Payment For.title.0.plain_text','(untitled)');
-const status=get(props,'Status.select.name','-');
-const amt = get(props,'Amount (RM).number',0)||0;
-const due = get(props,'DueDate.date.start','');
+
+const props=[p.properties](http://p.properties)||{};
+
+const title = get(props,'Payment For.title.0.plain_text','(untitled)');
+
+const status= get(props,'[Status.select.name](http://Status.select.name)','-');
+
+const amt   = get(props,'Amount (RM).number',0) || 0;
+
+const due   = get(props,'[DueDate.date](http://DueDate.date).start','');
+
 const div=document.createElement('div'); div.className='row';
+
 div.innerHTML=`<div><strong>${title}</strong></div>
+
 <div class="sub">${status} • RM ${amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} • ${due||'-'}</div>`;
+
 el.appendChild(div);
+
 });
+
 }
+
 function renderConfig(data){
+
 const el = $('config'); el.innerHTML='';
+
 const rows=(data.results||[]).slice(0,12);
+
 if(rows.length===0){ el.textContent='No config'; return; }
+
 rows.forEach(p=>{
-const props=p.properties||{};
-const k=get(props,'Key.title.0.plain_text','(key)');
-const v=get(props,'Value.rich_text.0.plain_text','');
+
+const props=[p.properties](http://p.properties)||{};
+
+const k = get(props,'Key.title.0.plain_text','(key)');
+
+const v = get(props,'[Value.rich](http://Value.rich)_text.0.plain_text','');
+
 const div=document.createElement('div'); div.className='row';
-div.innerHTML=<div><strong>${k}</strong></div><div class="sub">${v}</div>;
+
+div.innerHTML=`<div><strong>${k}</strong></div><div class="sub">${v}</div>`;
+
 el.appendChild(div);
+
 });
+
 }
+
 async function loadAll(){
+
 const btn=$('loadBtn'); const st=$('status');
+
 btn.disabled=true; st.textContent='Loading…';
+
 try{
+
 const [ms,dv,py,cfg] = await Promise.all([
-j('/api?type=milestones'),
-j('/api?type=deliverables'),
-j('/api?type=payments'),
-j('/api?type=config'),
+
+j('/.netlify/functions/proxy?type=milestones'),
+
+j('/.netlify/functions/proxy?type=deliverables'),
+
+j('/.netlify/functions/proxy?type=payments'),
+
+j('/.netlify/functions/proxy?type=config'),
+
 ]);
+
 renderMilestones(ms); renderDeliverables(dv); renderPayments(py); renderConfig(cfg);
+
 st.textContent='Loaded';
+
 }catch(e){
+
 console.error(e); st.textContent='Error — see console'; alert('Failed: '+e.message);
+
 }finally{ btn.disabled=false; }
+
 }
+
 $('loadBtn').addEventListener('click', loadAll);
+
 </script>
 </body>
 </html>
