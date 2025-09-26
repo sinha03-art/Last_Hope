@@ -1,165 +1,281 @@
-const { GEMINI_API_KEY, NOTION_API_KEY, MILESTONES_DB_ID, DELIVERABLES_DB_ID, PAYMENTS_DB_ID, CONFIG_DB_ID } = process.env;
+const NOTION_API_KEY = process.env.NOTION_API_KEY
 
-async function callGemini(prompt) {
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-    const apiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-    );
-    if (!apiResponse.ok) { throw new Error(`Gemini API responded with status: ${apiResponse.status}`); }
-    const data = await apiResponse.json();
-    return data.candidates[0].content.parts[0].text;
+const CONFIG_DB_ID = process.env.CONFIG_DB_ID
+
+const DELIVERABLES_DB_ID = process.env.DELIVERABLES_DB_ID
+
+const MILESTONES_DB_ID = process.env.MILESTONES_DB_ID
+
+const PAYMENT_DB_ID = process.env.PAYMENT_DB_ID
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+
+const NOTION_VERSION = '2022-06-28'
+
+const notionHeaders = {
+
+'Authorization': `Bearer ${NOTION_API_KEY}`,
+
+'Notion-Version': NOTION_VERSION,
+
+'content-type': 'application/json'
+
 }
 
-async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) {
-    const body = {};
-    if (filter && Object.keys(filter).length > 0) body.filter = filter;
-    if (sorts && sorts.length > 0) body.sorts = sorts;
+// --- Helpers ---
 
-    const response = await fetch(
-        `https://api.notion.com/v1/databases/${databaseId}/query`,
-        {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${NOTION_API_KEY}`,
-                'Notion-Version': '2022-06-28',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        }
-    );
-    if (!response.ok) {
-        const errorBody = await response.json();
-        console.error(`Notion API Error for DB ${databaseId}:`, errorBody);
-        throw new Error(`Notion API responded with status: ${response.status}. Message: ${errorBody.message}`);
-    }
-    return response.json();
+async function notionQueryAll(database_id, filter) {
+
+let results = []
+
+let has_more = true
+
+let start_cursor = undefined
+
+while (has_more) {
+
+const res = await fetch([`https://api.notion.com/v1/databases/${database_id}/query`](https://api.notion.com/v1/databases/${database_id}/query), {
+
+method: 'POST',
+
+headers: notionHeaders,
+
+body: JSON.stringify({ filter, start_cursor })
+
+})
+
+if (!res.ok) throw new Error(await res.text())
+
+const json = await res.json()
+
+results = results.concat(json.results || [])
+
+has_more = json.has_more
+
+start_cursor = [json.next](http://json.next)_cursor
+
+}
+
+return results
+
+}
+
+const get = (obj, path, dflt=null) => path.split('.').reduce((o,k)=> (o && k in o ? o[k] : dflt), obj)
+
+const parseTitle = (prop) => get(prop, 'title.0.plain_text', '').trim()
+
+const parseSelect = (prop) => get(prop, '[select.name](http://select.name)', '')
+
+const parseStatus = (prop) => get(prop, '[status.name](http://status.name)', '')
+
+const parseNumber = (prop) => typeof get(prop, 'number') === 'number' ? get(prop,'number') : null
+
+const parseDateStart = (prop) => get(prop, 'date.start', null)
+
+const parseRich = (prop) => get(prop, 'rich_text.0.plain_text', '').trim()
+
+async function summarizeWithGemini(payload) {
+
+if (!GEMINI_API_KEY) throw new Error('Missing GEMINI_API_KEY')
+
+const prompt = `Summarize project status in 6–8 concise bullet points.
+
+Paid vs Budget: ${(payload?.kpis?.paidVsBudget ?? 0)*100}%.
+
+Deliverables: ${(payload?.kpis?.deliverablesProgress ?? 0)*100}% complete.
+
+Over budget items: ${payload?.kpis?.overBudgetCount ?? 0}.
+
+Highlight top risks and upcoming payments.`
+
+const res = await fetch([`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}), {
+
+method: 'POST',
+
+headers: { 'content-type': 'application/json' },
+
+body: JSON.stringify({ contents: [{ parts: [{ text: prompt }]}] })
+
+})
+
+if (!res.ok) throw new Error(`Gemini error: ${await res.text()}`)
+
+const json = await res.json()
+
+const text = (json?.candidates?.[0]?.content?.parts || []).map(p=>p.text).join('n') || 'No response.'
+
+return text
+
 }
 
 exports.handler = async (event) => {
-    // --- DEBUGGING: Verify Environment Variables ---
-    console.log("--- Verifying Environment Variables ---");
-    console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
-    console.log("NOTION_API_KEY present:", !!process.env.NOTION_API_KEY);
-    console.log("MILESTONES_DB_ID present:", !!process.env.MILESTONES_DB_ID);
-    console.log("DELIVERABLES_DB_ID present:", !!process.env.DELIVERABLES_DB_ID);
-    console.log("PAYMENTS_DB_ID present:", !!process.env.PAYMENTS_DB_ID);
-    console.log("CONFIG_DB_ID present:", !!process.env.CONFIG_DB_ID);
-    console.log("------------------------------------");
 
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    };
-    if (event.httpMethod === 'OPTIONS') { return { statusCode: 204, headers }; }
+try {
 
-    try {
-        if (event.httpMethod === 'POST') {
-             let type, data;
-             try {
-                ({ type, data } = JSON.parse(event.body || '{}'));
-             } catch {
-                return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
-             }
+if (!NOTION_API_KEY) return { statusCode: 500, body: 'Missing NOTION_API_KEY' }
 
-            let prompt = '';
-            if (type === 'summary') {
-                const kpiText = `Paid vs Budget: ${(data.kpis.paidVsBudget * 100).toFixed(1)}%, Deliverables: ${(data.kpis.deliverablesProgress * 100).toFixed(0)}% approved, Over Budget Items: ${data.kpis.overBudgetCount}, Milestones At Risk: ${data.kpis.milestonesAtRisk}.`;
-                const milestonesText = data.milestones.map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
-                prompt = `Act as a project manager for a high-end home renovation. Based on the following live data, write a concise, professional weekly summary for the project stakeholders. Be encouraging but realistic, highlighting both successes and areas needing attention.\n\nKey Metrics:\n${kpiText}\n\nKey Milestones:\n${milestonesText}`;
-            } else if (type === 'suggestion') {
-                 prompt = `Act as a senior construction project manager. A project milestone is flagged as "At Risk". Provide 3 actionable, concise suggestions to help resolve the issue based on the provided context.\n\nMilestone: "${data.title}"\nFinancial Status: ${data.indicator}\nDescribed Issue: "${data.gateIssue}"`;
-            }
+// POST → AI summary
 
-            if (!prompt) { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) }; }
-            const geminiResponse = await callGemini(prompt);
-            return { statusCode: 200, headers, body: JSON.stringify({ text: geminiResponse }) };
-        }
+if (event.httpMethod === 'POST') {
 
-        if (event.httpMethod === 'GET') {
-            if (!MILESTONES_DB_ID || !DELIVERABLES_DB_ID || !PAYMENTS_DB_ID || !CONFIG_DB_ID) {
-                throw new Error("Configuration error: One or more database IDs are not set in environment variables.");
-            }
+const body = JSON.parse(event.body || '{}')
 
-            const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
-                queryNotionDB(MILESTONES_DB_ID, undefined, [{ property: 'StartDate', direction: 'ascending' }]),
-                queryNotionDB(DELIVERABLES_DB_ID),
-                queryNotionDB(PAYMENTS_DB_ID),
-                queryNotionDB(CONFIG_DB_ID)
-            ]);
+if (body.type === 'summary') {
 
-            const milestones = milestonesData.results.map(p => ({
-                id: p.id,
-                title: p.properties.MilestoneTitle?.title[0]?.plain_text ?? 'Untitled',
-                riskStatus: p.properties.Risk?.status?.name ?? 'OK',
-                phase: p.properties.Phase?.select?.name ?? 'Uncategorized',
-                progress: p.properties.Progress?.number ?? 0,
-                indicator: p.properties.Indicator?.formula?.string ?? '🟢 OK', 
-                paidVsBudget: p.properties['Paid vs Budget (%)']?.formula?.number ?? 0,
-            }));
+const text = await summarizeWithGemini([body.data](http://body.data))
 
-            const deliverables = deliverablesData.results.map(p => ({
-                id: p.id,
-                title: p.properties['Deliverable Name']?.title[0]?.plain_text ?? 'Untitled',
-                gate: p.properties.Gate?.select?.name ?? 'Uncategorized',
-                status: p.properties.Status?.select?.name ?? 'Missing',
-            }));
-            
-            const payments = paymentsData.results.map(p => ({
-                id: p.id,
-                title: p.properties['Payment For']?.title[0]?.plain_text ?? 'Untitled',
-                vendor: p.properties.Vendor?.rich_text?.[0]?.plain_text ?? p.properties.Vendor?.title?.[0]?.plain_text ?? 'N/A',
-                amount: p.properties['Amount (RM)']?.number ?? 0,
-                status: p.properties.Status?.select?.name ?? 'Outstanding',
-                dueDate: p.properties.DueDate?.date?.start ?? null,
-                paidDate: p.properties.PaidDate?.date?.start ?? null,
-            }));
-            
-            const config = configData.results.reduce((acc, p) => {
-                const key = p.properties.Key?.title[0]?.plain_text;
-                const value = p.properties.Value?.rich_text[0]?.plain_text;
-                if (key) acc[key] = value;
-                return acc;
-            }, {});
+return { statusCode: 200, headers: { 'content-type':'application/json' }, body: JSON.stringify({ text }) }
 
-            const totalBudget = milestonesData.results.reduce((sum, p) => sum + (p.properties['Budget (RM)']?.number ?? 0), 0);
-            const totalPaidSpent = payments.filter(p => p.status === 'Paid').reduce((sum, p) => sum + p.amount, 0);
-            const overBudgetCount = milestones.filter(m => m.indicator.includes('Over budget')).length;
-            const deliverablesApproved = deliverables.filter(d => d.status === 'Approved').length;
-            
-            const launchRaw = config['Project Launch Date'];
-            const launchDate = launchRaw ? new Date(launchRaw) : null;
-            let daysToLaunchVal = 'TBD';
-            if(launchDate) {
-                const d = Math.ceil((launchDate - new Date()) / (1000 * 60 * 60 * 24));
-                daysToLaunchVal = d > 0 ? d : 'Launched';
-            }
-            
-            const kpis = {
-                daysToLaunch: daysToLaunchVal,
-                paidVsBudget: totalBudget > 0 ? totalPaidSpent / totalBudget : 0,
-                deliverablesProgress: deliverables.length > 0 ? deliverablesApproved / deliverables.length : 0,
-                overBudgetCount: overBudgetCount,
-                milestonesAtRisk: milestones.filter(m => m.riskStatus === 'At Risk').length
-            };
-            
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ milestones, deliverables, payments, kpis, config })
-            };
-        }
+}
 
-        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+return { statusCode: 400, body: 'Unknown POST type' }
 
-    } catch (error) {
-        console.error('Server Error:', error);
-        return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message })};
-    }
-};
+}
 
+// GET → Notion data → frontend contract
+
+const cfgPages = await notionQueryAll(CONFIG_DB_ID)
+
+const configPairs = {}
+
+for (const p of cfgPages) {
+
+const props = [p.properties](http://p.properties) || {}
+
+const key = parseTitle(props['Key'])
+
+const value = parseRich(props['Value'])
+
+if (key) configPairs[key] = value
+
+}
+
+const msPages = await notionQueryAll(MILESTONES_DB_ID)
+
+const milestones = [msPages.map](http://msPages.map)((p) => {
+
+const props = [p.properties](http://p.properties) || {}
+
+return {
+
+id: [p.id](http://p.id),
+
+title: parseTitle(props['MilestoneTitle']),
+
+phase: parseSelect(props['Phase']),
+
+status: parseSelect(props['Status']),
+
+progress: (parseNumber(props['Progress']) ?? 0) / 100,
+
+indicator: parseRich(props['Indicator']) || parseRich(props['Indicator [PROD]']),
+
+riskStatus: parseStatus(props['Risk']) || '',
+
+endDate: parseDateStart(props['EndDate'])
+
+}
+
+})
+
+const delPages = await notionQueryAll(DELIVERABLES_DB_ID)
+
+const deliverables = [delPages.map](http://delPages.map)(p => {
+
+const props = [p.properties](http://p.properties) || {}
+
+return {
+
+title: parseTitle(props['Deliverable Name']),
+
+gate: parseSelect(props['Gate']) || 'Uncategorized',
+
+status: parseSelect(props['Status']) || 'Missing'
+
+}
+
+})
+
+const payPages = await notionQueryAll(PAYMENT_DB_ID)
+
+const payments = [payPages.map](http://payPages.map)(p => {
+
+const props = [p.properties](http://p.properties) || {}
+
+const title = parseTitle(props['Payment For']) || parseTitle(props['Invoice #'])
+
+const vendor = parseRich(props['Vendor']) || ''
+
+const amount = parseNumber(props['Amount (RM)']) ?? parseNumber(props['Paid (MYR)']) ?? parseNumber(props['Invoice Amount (Doc)']) ?? 0
+
+const status = parseSelect(props['Status']) || 'Outstanding'
+
+const dueDate = parseDateStart(props['DueDate']) ?? parseDateStart(props['Paid Date']) ?? null
+
+const paidDate = parseDateStart(props['Paid Date']) ?? null
+
+return { title, vendor, amount, status, dueDate, paidDate }
+
+})
+
+// KPIs
+
+const paidRatios = [msPages.map](http://msPages.map)(p => get(p, 'properties.Paid vs Budget (%) [PROD].number')).filter(n => Number.isFinite(n))
+
+const paidVsBudget = paidRatios.length ? (paidRatios.reduce((a,b)=>a+b,0) / paidRatios.length) : 0
+
+const roleProgress = [msPages.map](http://msPages.map)(p => {
+
+const d = get(p,'properties.Designer Deliverables Progress (%).formula.number')
+
+const a = get(p,'properties.Architect Deliverables Progress (%).formula.number')
+
+if (Number.isFinite(d) && Number.isFinite(a)) return (d + a) / 2
+
+const u = get(p,'properties.Deliverables Progress (%).formula.number')
+
+return Number.isFinite(u) ? u : NaN
+
+}).filter(Number.isFinite)
+
+const deliverablesProgress = roleProgress.length ? (roleProgress.reduce((x,y)=>x+y,0) / roleProgress.length) : 0
+
+const overBudgetCount = msPages.reduce((cnt, p) => {
+
+const obBool = get(p,'properties.Over Budget?.formula.boolean')
+
+const obStr = get(p,'properties.Over Budget?.formula.string')
+
+const val = typeof obBool === 'boolean' ? obBool : Boolean(obStr)
+
+return cnt + (val ? 1 : 0)
+
+}, 0)
+
+const launchStr = configPairs['Project Launch Date']
+
+const launchDate = launchStr ? new Date(launchStr) : null
+
+const now = new Date()
+
+const daysToLaunch = launchDate ? Math.max(0, Math.ceil((+launchDate - +now) / (1000*60*60*24))) : 0
+
+const kpis = { daysToLaunch, paidVsBudget, deliverablesProgress, overBudgetCount }
+
+return {
+
+statusCode: 200,
+
+headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+
+body: JSON.stringify({ kpis, milestones, deliverables, payments })
+
+}
+
+} catch (err) {
+
+return { statusCode: 500, body: `Proxy error: ${err.message || String(err)}` }
+
+}
+
+}
