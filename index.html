@@ -1,129 +1,71 @@
-<!DOCTYPE html>
-<html lang="en">
+
+<!doctype html>
+
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Dashboard</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f7f6;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        h1 {
-            color: #007bff;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        h2 {
-            color: #0056b3;
-            border-bottom: 2px solid #e9ecef;
-            padding-bottom: 10px;
-            margin-top: 30px;
-            margin-bottom: 20px;
-        }
-        #loadBtn {
-            background-color: #28a745;
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            display: block;
-            margin: 0 auto 20px auto;
-        }
-        #loadBtn:hover {
-            background-color: #218838;
-        }
-        #status {
-            display: block;
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 25px;
-            color: #6c757d;
-        }
-        section {
-            margin-bottom: 40px;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            background-color: #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            overflow: hidden; /* Ensures rounded corners on table */
-        }
-        th, td {
-            border: 1px solid #e9ecef;
-            padding: 12px 15px;
-            text-align: left;
-            vertical-align: top;
-            font-size: 0.95em;
-        }
-        th {
-            background-color: #e2e6ea;
-            color: #495057;
-            font-weight: 600;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        tr:hover {
-            background-color: #e9f7ff;
-        }
-        p {
-            color: #6c757d;
-            font-style: italic;
-            text-align: center;
-            padding: 10px 0;
-        }
-    </style>
+
+<meta charset="utf-8">
+
+<title>KPIs</title>
+
 </head>
+
 <body>
-    <div class="container">
-        <h1>Project Overview Dashboard</h1>
-        <button id="loadBtn">Load All Data</button>
-        <span id="status">Click "Load All Data" to begin...</span>
 
-        <section>
-            <h2>Project Configuration</h2>
-            <div id="config"></div>
-        </section>
+<button id="load">Load KPIs</button>
 
-        <section>
-            <h2>Project Milestones</h2>
-            <div id="milestones"></div>
-        </section>
+<pre id="out">Click "Load KPIs"</pre>
 
-        <section>
-            <h2>Gate Deliverables</h2>
-            <div id="deliverables"></div>
-        </section>
+<script>
 
-        <section>
-            <h2>Payment Schedule</h2>
-            <div id="payments"></div>
-        </section>
-    </div>
+document.getElementById('load').addEventListener('click', async () => {
 
-    <!-- The main.js script should be loaded after the HTML elements it interacts with -->
-    <script src="main.js"></script>
+const out = document.getElementById('out');
+
+out.textContent = "Loading...";
+
+try {
+
+const res = await fetch('/.netlify/functions/proxy-kpi');
+
+const data = await res.json();
+
+// Print a simple list
+
+// paidVsBudget and deliverablesProgress are 0..1; show both raw and %.
+
+const k = data.kpis || {};
+
+const lines = [
+
+"paidVsBudget (raw): " + (k.paidVsBudget ?? 0),
+
+"paidVsBudget (%): " + ((k.paidVsBudget ?? 0) * 100).toFixed(2) + "%",
+
+"deliverablesProgress (raw): " + (k.deliverablesProgress ?? 0),
+
+"deliverablesProgress (%): " + ((k.deliverablesProgress ?? 0) * 100).toFixed(0) + "%",
+
+"overBudgetCount: " + (k.overBudgetCount ?? 0),
+
+"daysToLaunch: " + (k.daysToLaunch ?? 0)
+
+];
+
+out.textContent = lines.join("n");
+
+} catch (e) {
+
+out.textContent = "Error: " + e.message;
+
+}
+
+});
+
+</script>
+
 </body>
+
 </html>
+
