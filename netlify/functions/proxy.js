@@ -1,103 +1,101 @@
+// netlify/functions/proxy.js
 
-// Netlify Function (Node 18+). Queries Notion via server-side proxy.
+const { Client } = require('@notionhq/client');
 
-// Set env vars in Netlify: NOTION_API_KEY, CONFIG_DB_ID, MILESTONES_DB_ID, DELIVERABLES_DB_ID, PAYMENT_DB_ID.
-
-const NOTION_API_KEY = process.env.NOTION_API_KEY;
-
-const CONFIG_DB_ID = process.env.CONFIG_DB_ID || "[Project Config](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/e99269c204bd47749e8e0f144651cdf7?db=5ed0e89ba8484377bbaa1ce74f478574&pvs=21)";
-
-const MILESTONES_DB_ID = process.env.MILESTONES_DB_ID || "[Project Milestones](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/be255c8aba634d0b9a7d68b152fb7c2e?db=13262b8e4fea4a969d03c9032e99088f&pvs=21)";
-
-const DELIVERABLES_DB_ID = process.env.DELIVERABLES_DB_ID || "[Gate Deliverables](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/91c8fc8aeafa4015b47e814f27ea45fc?db=d754a179028046b4a8040c7153935558&pvs=21)";
-
-const PAYMENT_DB_ID = process.env.PAYMENT_DB_ID || "[Payment Schedule](https://www.notion.so/2c05a80cd06781ab9afa0003e3692781/ds/0032bf7e1db04b6bad248721a81fff04?db=7f679ba982e24ad4bcc194b106cbfb3b&pvs=21)";
-
-const NOTION_VERSION = "2022-06-28";
-
-async function notionQuery(databaseId, body = {}) {
-
-const url = "https://api.notion.com/v1/databases/" + databaseId + "/query";
-
-const res = await fetch(url, {
-
-method: "POST",
-
-headers: {
-
-"Authorization": "Bearer " + NOTION_API_KEY,
-
-"Notion-Version": NOTION_VERSION,
-
-"Content-Type": "application/json",
-
-},
-
-body: JSON.stringify({ page_size: 25, ...body }),
-
-});
-
-if (!res.ok) {
-
-const detail = await res.text().catch(() => "");
-
-throw new Error(`Notion ${res.status}: ${detail}`);
-
+// Initialize Notion Client globally to reuse across invocations.
+// It will only be initialized once per Netlify function instance lifecycle.
+let notion;
+if (process.env.NOTION_API_KEY) {
+    notion = new Client({ auth: process.env.NOTION_API_KEY });
+} else {
+    // Log an error if the API key isn't set, this will appear in Netlify Function logs
+    console.error("CRITICAL: NOTION_API_KEY environment variable is not set. Notion client cannot be initialized.");
 }
 
-return res.json();
-
-}
-
-exports.handler = async (event) => {
-
-try {
-
-if (!NOTION_API_KEY) {
-
-return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: "Missing NOTION_API_KEY" }) };
-
-}
-
-const url = new URL(event.rawUrl);
-
-const type = (url.searchParams.get("type") || "milestones").toLowerCase();
-
-let dbId;
-
-if (type === "milestones") dbId = MILESTONES_DB_ID;
-
-else if (type === "deliverables") dbId = DELIVERABLES_DB_ID;
-
-else if (type === "payments") dbId = PAYMENT_DB_ID;
-
-else if (type === "config") dbId = CONFIG_DB_ID;
-
-else return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Unknown type" }) };
-
-const data = await notionQuery(dbId);
-
-return { statusCode: 200, headers: { ...cors(), "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(data) };
-
-} catch (err) {
-
-return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: "Proxy error", detail: err.message }) };
-
-}
-
+// Map 'type' query parameters to actual Notion database IDs.
+// These IDs MUST be set as environment variables in Netlify.
+const DATABASE_IDS = {
+    milestones: process.env.NOTION_MILESTONES_DB_ID,
+    deliverables: process.env.NOTION_DELIVERABLES_DB_ID,
+    payments: process.env.NOTION_PAYMENTS_DB_ID,
+    config: process.env.NOTION_CONFIG_DB_ID,
 };
 
-function cors() {
+exports.handler = async (event, context) => {
+    // Basic CORS headers for local testing or explicit cross-origin needs.
+    // Netlify Functions typically handle simple CORS requests automatically for your deployed site.
+    const headers = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*", // Be more restrictive in production if needed, e.g., "https://your-dashboard.netlify.app"
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type"
+    };
 
-return {
+    // Handle OPTIONS preflight requests for CORS
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: headers
+        };
+    }
 
-"Access-Control-Allow-Origin": "*",
+    // Check if the Notion client was successfully initialized
+    if (!notion) {
+        console.error("Notion client not initialized due to missing API key.");
+        return {
+            statusCode: 500,
+            headers: headers,
+            body: JSON.stringify({ error: "Server configuration error: Notion API key not set." }),
+        };
+    }
 
-"Access-Control-Allow-Methods": "GET,OPTIONS",
+    const { type } = event.queryStringParameters || {}; // Safely access query parameters
 
-"Access-Control-Allow-Headers": "Content-Type, Authorization",
+    // Validate the 'type' parameter
+    if (!type || !DATABASE_IDS[type]) {
+        console.warn(`Invalid or missing 'type' parameter received: ${type}`);
+        return {
+            statusCode: 400,
+            headers: headers,
+            body: JSON.stringify({ error: "Invalid or missing 'type' parameter in request." }),
+        };
+    }
 
+    const databaseId = DATABASE_IDS[type];
+
+    try {
+        // Query the Notion database
+        const response = await notion.databases.query({
+            database_id: databaseId,
+        });
+
+        return {
+            statusCode: 200,
+            headers: headers,
+            body: JSON.stringify(response), // Send Notion's response directly
+        };
+    } catch (error) {
+        console.error(`Notion API query error for type '${type}' (DB ID: ${databaseId}):`, error);
+
+        // Provide more granular error details if it's a Notion API error
+        let errorMessage = "Failed to fetch data from Notion API.";
+        let statusCode = 500;
+
+        if (error.code) { // Notion API error codes
+            errorMessage = `Notion API Error (${error.code}): ${error.message}`;
+            statusCode = error.status || 500; // Use Notion's provided status
+        } else {
+            errorMessage = `Unexpected error: ${error.message}`;
+        }
+
+        return {
+            statusCode: statusCode,
+            headers: headers,
+            body: JSON.stringify({
+                error: errorMessage,
+                details: error.message,
+                notionError: error.code || null,
+            }),
+        };
+    }
 };
-
-}
-

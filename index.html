@@ -1,269 +1,129 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>JOOBIN Dashboard — Milestones • Deliverables • Payments • Config</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:,">
-<style>
-:root { --ok:#2e7d32; --warn:#d32f2f; --muted:#666; --bg:#fafafa; --card:#fff; --line:#eee; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--bg); }
-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.btn { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-#status { color: var(--muted); }
-.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-h2 { margin: 0 0 12px; font-size: 16px; }
-.row { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.row:last-child { border-bottom: 0; }
-.sub { color: var(--muted); font-size: 12px; }
-.ok { color: var(--ok); font-weight: 600; }
-.warn { color: var(--warn); font-weight: 600; }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 12px; }
-.kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-footer { margin-top: 16px; color: var(--muted); font-size: 12px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #0056b3;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        #loadBtn {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: block;
+            margin: 0 auto 20px auto;
+        }
+        #loadBtn:hover {
+            background-color: #218838;
+        }
+        #status {
+            display: block;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 25px;
+            color: #6c757d;
+        }
+        section {
+            margin-bottom: 40px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: hidden; /* Ensures rounded corners on table */
+        }
+        th, td {
+            border: 1px solid #e9ecef;
+            padding: 12px 15px;
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.95em;
+        }
+        th {
+            background-color: #e2e6ea;
+            color: #495057;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9f7ff;
+        }
+        p {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 10px 0;
+        }
+    </style>
 </head>
 <body>
-<header>
-<div>
-<h1 style="margin:0;font-size:18px;">JOOBIN Command Snapshot</h1>
-<div class="sub">Live via Netlify Function → Notion API</div>
-</div>
-<div>
-<button id="loadBtn" class="btn">Load</button>
-</div>
-
-</header>
-
-<div class="grid">
-
-<section><h2>Milestones</h2><div id="milestones"></div></section>
-
-<section><h2>Deliverables</h2><div id="deliverables"></div></section>
-
-<section><h2>Payments</h2><div id="payments"></div></section>
-
-<section><h2>Config</h2><div id="config"></div></section>
-
-</div>
-
-<footer>Tip: Click Load to refresh. Values reflect your Notion databases in real time.</footer>
-
-<script>
-
-const $ = (id) => document.getElementById(id);
-
-function get(obj, path, dflt = null) {
-
-try {
-
-const parts = path.split('.');
-
-let cur = obj;
-
-for (const k of parts) { if (cur == null) return dflt; cur = cur[k]; }
-
-return cur ?? dflt;
-
-} catch { return dflt; }
-
-}
-
-async function j(url, opts) {
-
-const r = await fetch(url, opts);
-
-if (!r.ok) throw new Error(await r.text());
-
-return r.json();
-
-}
-
-function renderMilestones(data) {
-const el = document.getElementById('milestones');
-el.innerHTML = '';
-const rows = (data.results || []).slice(0, 12);
-if (rows.length === 0) { el.textContent = 'No milestones'; return; }
-rows.forEach(p => {
-const props  = p.properties || {};
-const title  = get(props, 'MilestoneTitle.title.0.plain_text', '(untitled)');
-const phase  = get(props, 'Phase.select.name', '-');
-const status = get(props, 'Status.select.name', '-');
-const pv     = get(props, 'Paid vs Budget (%).formula.number', 0) || 0;
-const div = document.createElement('div');
-div.className = 'row';
-div.innerHTML =
-'<div><strong>' + title + '</strong></div>' +
-'<div class="sub">' + phase + ' • ' + status + '</div>' +
-'<div class="kpis">Paid vs Budget: ' + pv.toFixed(2) + '</div>';
-el.appendChild(div);
-});
-
-}
-
-function renderDeliverables(data) {
-
-const el = $('deliverables'); el.innerHTML = '';
-
-const rows = (data.results || []).slice(0, 12);
-
-if (rows.length === 0) { el.textContent = 'No deliverables'; return; }
-
-rows.forEach(p => {
-
-const props = [p.properties](http://p.properties) || {};
-
-const name = get(props, 'Deliverable Name.title.0.plain_text', '(untitled)');
-
-const gate = get(props, '[Gate.select.name](http://Gate.select.name)', '-');
-
-const st = get(props, '[Status.select.name](http://Status.select.name)', '-');
-
-const div = document.createElement('div');
-
-div.className = 'row';
-
-div.innerHTML = `
-
-<div><strong>${name}</strong></div>
-
-<div class="sub">${gate} • ${st}</div>
-
-`;
-
-el.appendChild(div);
-
-});
-
-}
-
-function renderPayments(data) {
-
-const el = $('payments'); el.innerHTML = '';
-
-const rows = (data.results || []).slice(0, 12);
-
-if (rows.length === 0) { el.textContent = 'No payments'; return; }
-
-rows.forEach(p => {
-
-const props = [p.properties](http://p.properties) || {};
-
-const title = get(props, 'Payment For.title.0.plain_text', '(untitled)');
-
-const status = get(props, '[Status.select.name](http://Status.select.name)', '-');
-
-const amt = get(props, 'Amount (RM).number', 0) || 0;
-
-const due = get(props, '[DueDate.date](http://DueDate.date).start', '');
-
-const div = document.createElement('div');
-
-div.className = 'row';
-
-div.innerHTML = `
-
-<div><strong>${title}</strong></div>
-
-<div class="sub">${status}
-
-- RM ${amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
-- ${due || '-'}</div>
-
-`;
-
-el.appendChild(div);
-
-});
-
-}
-
-function renderConfig(data) {
-
-const el = $('config'); el.innerHTML = '';
-
-const rows = (data.results || []).slice(0, 12);
-
-if (rows.length === 0) { el.textContent = 'No config'; return; }
-
-rows.forEach(p => {
-
-const props = [p.properties](http://p.properties) || {};
-
-const k = get(props, 'Key.title.0.plain_text', '(key)');
-
-const v = get(props, '[Value.rich](http://Value.rich)_text.0.plain_text', '');
-
-const div = document.createElement('div');
-
-div.className = 'row';
-
-div.innerHTML = `
-
-<div><strong>${k}</strong></div>
-
-<div class="sub">${v}</div>
-
-`;
-
-el.appendChild(div);
-
-});
-
-}
-
-async function loadAll() {
-
-const btn = $('loadBtn');
-
-let st = $('status');
-
-if (!st) { st = document.createElement('span'); [st.id](http://st.id) = 'status'; btn.parentNode.appendChild(st); }
-
-btn.disabled = true; st.textContent = ' Loading…';
-
-try {
-
-const [ms, dv, py, cfg] = await Promise.all([
-
-j('/.netlify/functions/proxy?type=milestones'),
-
-j('/.netlify/functions/proxy?type=deliverables'),
-
-j('/.netlify/functions/proxy?type=payments'),
-
-j('/.netlify/functions/proxy?type=config'),
-
-]);
-
-renderMilestones(ms);
-
-renderDeliverables(dv);
-
-renderPayments(py);
-
-renderConfig(cfg);
-
-st.textContent = ' Loaded';
-
-} catch (e) {
-
-console.error(e);
-
-st.textContent = ' Error — see console';
-
-alert('Failed: ' + e.message);
-
-} finally { btn.disabled = false; }
-
-}
-
-$('loadBtn').addEventListener('click', loadAll);
-
-</script>
-
+    <div class="container">
+        <h1>Project Overview Dashboard</h1>
+        <button id="loadBtn">Load All Data</button>
+        <span id="status">Click "Load All Data" to begin...</span>
+
+        <section>
+            <h2>Project Configuration</h2>
+            <div id="config"></div>
+        </section>
+
+        <section>
+            <h2>Project Milestones</h2>
+            <div id="milestones"></div>
+        </section>
+
+        <section>
+            <h2>Gate Deliverables</h2>
+            <div id="deliverables"></div>
+        </section>
+
+        <section>
+            <h2>Payment Schedule</h2>
+            <div id="payments"></div>
+        </section>
+    </div>
+
+    <!-- The main.js script should be loaded after the HTML elements it interacts with -->
+    <script src="main.js"></script>
 </body>
-
 </html>
