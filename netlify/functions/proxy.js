@@ -1,3 +1,7 @@
+/**
+ * Renovation Project Hub proxy
+ * Adds: KPIs, alerts, cashflow, per-gate aggregates + summary POST.
+ */
 const {
   GEMINI_API_KEY,
   NOTION_API_KEY,
@@ -12,11 +16,16 @@ const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }]}] }),
-  });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+      GEMINI_API_KEY
+    )}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    }
+  );
   if (!res.ok) throw new Error(`Gemini API responded with status: ${res.status}`);
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
@@ -38,11 +47,19 @@ async function queryNotionDB(databaseId, filter, sorts) {
   });
   if (!res.ok) {
     let errorBody = {};
-    try { errorBody = await res.json(); } catch {}
+    try {
+      errorBody = await res.json();
+    } catch {}
     console.error(`Notion API Error for DB ${databaseId}:`, errorBody);
-    throw new Error(`Notion API responded with status: ${res.status}. Message: ${errorBody?.message ?? 'Unknown error'}`);
+    throw new Error(
+      `Notion API responded with status: ${res.status}. Message: ${errorBody?.message ?? 'Unknown error'}`
+    );
   }
   return res.json();
+}
+
+function ymKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 exports.handler = async (event) => {
@@ -56,17 +73,37 @@ exports.handler = async (event) => {
   try {
     if (event.httpMethod === 'POST') {
       let type, data;
-      try { ({ type, data } = JSON.parse(event.body || '{}')); }
-      catch { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
+      try {
+        ({ type, data } = JSON.parse(event.body || '{}'));
+      } catch {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+      }
 
       let prompt = '';
       if (type === 'summary') {
         const k = data.kpis || {};
-        const kpiText = `Paid vs Budget: ${((k.paidVsBudget||0)*100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress||0)*100).toFixed(0)}% approved, Over Budget Items: ${k.overBudgetCount||0}, Milestones At Risk: ${k.milestonesAtRisk||0}.`;
-        const milestonesText = (data.milestones||[]).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
-        prompt = `Act as a project manager for a high-end home renovation. Based on the following live data, write a concise, professional weekly summary.\n\nKey Metrics:\n${kpiText}\n\nKey Milestones:\n${milestonesText}`;
+        const kpiText = `Paid vs Budget: ${((k.paidVsBudget || 0) * 100).toFixed(
+          1
+        )}%, Deliverables: ${((k.deliverablesProgress || 0) * 100).toFixed(0)}% approved, Milestones At Risk: ${
+          k.milestonesAtRisk || 0
+        }, Next 30d Due: RM ${(k.next30?.amount || 0).toLocaleString('en-MY')} (${k.next30?.count || 0} items).`;
+        const milestonesText = (data.milestones || [])
+          .slice(0, 10)
+          .map((m) => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`)
+          .join('\n');
+        prompt = `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.
+
+Key Metrics:
+${kpiText}
+
+Key Milestones:
+${milestonesText}`;
       } else if (type === 'suggestion') {
-        prompt = `Act as a senior construction PM. A project milestone is "At Risk". Provide 3 concise, actionable suggestions.\n\nMilestone: "${data.title}"\nFinancial Status: ${data.indicator}\nDescribed Issue: "${data.gateIssue}"`;
+        prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.
+
+Milestone: "${data.title}"
+Financial: ${data.indicator}
+Issue: "${data.gateIssue}"`;
       } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
       }
@@ -87,24 +124,23 @@ exports.handler = async (event) => {
         queryNotionDB(CONFIG_DB_ID),
       ]);
 
-      const milestones = (milestonesData.results||[]).map(p => ({
+      const milestones = (milestonesData.results || []).map((p) => ({
         id: p.id,
         title: p.properties?.MilestoneTitle?.title?.[0]?.plain_text ?? 'Untitled',
         riskStatus: p.properties?.Risk?.status?.name ?? 'OK',
         phase: p.properties?.Phase?.select?.name ?? 'Uncategorized',
         progress: p.properties?.Progress?.number ?? 0,
         indicator: p.properties?.Indicator?.formula?.string ?? '🟢 OK',
-        paidVsBudget: p.properties?.['Paid vs Budget (%)']?.formula?.number ?? 0,
       }));
 
-      const deliverables = (deliverablesData.results||[]).map(p => ({
+      const deliverables = (deliverablesData.results || []).map((p) => ({
         id: p.id,
         title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
         gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
         status: p.properties?.Status?.select?.name ?? 'Missing',
       }));
 
-      const payments = (paymentsData.results||[]).map(p => ({
+      const payments = (paymentsData.results || []).map((p) => ({
         id: p.id,
         title: p.properties?.['Payment For']?.title?.[0]?.plain_text ?? 'Untitled',
         vendor: p.properties?.Vendor?.rich_text?.[0]?.plain_text ?? 'N/A',
@@ -112,42 +148,118 @@ exports.handler = async (event) => {
         status: p.properties?.Status?.select?.name ?? 'Outstanding',
         dueDate: p.properties?.DueDate?.date?.start ?? null,
         paidDate: p.properties?.PaidDate?.date?.start ?? null,
+        url: p.url,
       }));
 
-      const config = (configData.results||[]).reduce((acc, p) => {
+      const config = (configData.results || []).reduce((acc, p) => {
         const key = p.properties?.Key?.title?.[0]?.plain_text;
         const value = p.properties?.Value?.rich_text?.[0]?.plain_text;
         if (key) acc[key] = value;
         return acc;
       }, {});
 
-      const totalBudget = (milestonesData.results||[]).reduce((sum, p) => sum + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
-      const totalPaidSpent = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount||0), 0);
-      const overBudgetCount = milestones.filter(m => (m.indicator||'').toLowerCase().includes('over budget')).length;
-      const deliverablesApproved = deliverables.filter(d => d.status === 'Approved').length;
+      const totalBudget = (milestonesData.results || []).reduce(
+        (sum, p) => sum + (p.properties?.['Budget (RM)']?.number ?? 0),
+        0
+      );
+      const totalPaid = payments.filter((p) => p.status === 'Paid').reduce((s, p) => s + (p.amount || 0), 0);
 
-      const launchRaw = config['Project Launch Date'];
-      const launchDate = launchRaw ? new Date(launchRaw) : null;
-      let daysToLaunchVal = 'TBD';
-      if (launchDate && !Number.isNaN(+launchDate)) {
-        const d = Math.ceil((launchDate - new Date()) / (1000*60*60*24));
-        daysToLaunchVal = d >= 0 ? d : 'Launched';
-      }
-
-      const kpis = {
-        daysToLaunch: daysToLaunchVal,
-        paidVsBudget: totalBudget > 0 ? totalPaidSpent / totalBudget : 0,
-        deliverablesProgress: deliverables.length > 0 ? deliverablesApproved / deliverables.length : 0,
-        overBudgetCount,
-        milestonesAtRisk: milestones.filter(m => m.riskStatus === 'At Risk').length,
+      const now = new Date();
+      const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const next30Items = payments.filter((p) => {
+        if (p.status === 'Paid') return false;
+        const d = p.dueDate ? new Date(p.dueDate) : null;
+        return d && d >= now && d <= in30;
+      });
+      const next30 = {
+        amount: next30Items.reduce((s, p) => s + (p.amount || 0), 0),
+        count: next30Items.length,
+        items: next30Items.slice(0, 50),
       };
 
-      return { statusCode: 200, headers, body: JSON.stringify({ milestones, deliverables, payments, kpis, config }) };
+      const overdue = payments
+        .filter((p) => {
+          if (p.status === 'Paid') return false;
+          const d = p.dueDate ? new Date(p.dueDate) : null;
+          return d && d < now;
+        })
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+      const upcoming = payments
+        .filter((p) => {
+          if (p.status === 'Paid') return false;
+          const d = p.dueDate ? new Date(p.dueDate) : null;
+          return d && d >= now && d <= in30;
+        })
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+      const deliverablesIssues = deliverables.filter((d) => d.status === 'Missing' || d.status === 'Rejected');
+      const milestonesRisk = milestones.filter((m) => m.riskStatus === 'At Risk');
+
+      const cashAgg = {};
+      payments.forEach((p) => {
+        const due = p.dueDate ? new Date(p.dueDate) : null;
+        if (due) {
+          const k = ymKey(due);
+          cashAgg[k] = cashAgg[k] || { ym: k, scheduled: 0, paid: 0 };
+          cashAgg[k].scheduled += p.amount || 0;
+        }
+        const paid = p.paidDate ? new Date(p.paidDate) : null;
+        if (paid) {
+          const k2 = ymKey(paid);
+          cashAgg[k2] = cashAgg[k2] || { ym: k2, scheduled: 0, paid: 0 };
+          cashAgg[k2].paid += p.amount || 0;
+        }
+      });
+      const cashflow = Object.values(cashAgg).sort((a, b) => a.ym.localeCompare(b.ym));
+
+      const gatesIndex = {};
+      deliverables.forEach((d) => {
+        const g = d.gate || 'Uncategorized';
+        gatesIndex[g] = gatesIndex[g] || { id: g, required: 0, approved: 0, blocked: 0, milestonesComplete: 0 };
+        gatesIndex[g].required += 1;
+        if (d.status === 'Approved') gatesIndex[g].approved += 1;
+        if (['Rejected', 'Missing'].includes(d.status)) gatesIndex[g].blocked += 1;
+      });
+      milestones.forEach((m) => {
+        if (!m.phase) return;
+        const g = m.phase;
+        gatesIndex[g] = gatesIndex[g] || { id: g, required: 0, approved: 0, blocked: 0, milestonesComplete: 0 };
+        if (m.progress >= 1 || String(m.indicator).toLowerCase().includes('complete')) {
+          gatesIndex[g].milestonesComplete += 1;
+        }
+      });
+      const gates = Object.values(gatesIndex);
+
+      const kpis = {
+        paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
+        deliverablesProgress:
+          deliverables.length > 0 ? deliverables.filter((d) => d.status === 'Approved').length / deliverables.length : 0,
+        milestonesAtRisk: milestonesRisk.length,
+        next30,
+      };
+
+      const alerts = {
+        paymentsOverdue: overdue,
+        paymentsUpcoming: upcoming,
+        deliverablesIssues,
+        milestonesRisk,
+      };
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ milestones, deliverables, payments, kpis, alerts, cashflow, gates, config }),
+      };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   } catch (error) {
     console.error('Server Error:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }),
+    };
   }
 };
