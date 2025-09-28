@@ -1,34 +1,277 @@
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>KPIs</title></head>
-<body>
-<button id="load">Load KPIs</button>
-<pre id="out">Click "Load KPIs"</pre>
-<script>
-document.getElementById('load').addEventListener('click', async () => {
-const out = document.getElementById('out');
-out.textContent = "Loading...";
-try {
-const res = await fetch('/.netlify/functions/proxy-kpi');
-const { kpis = {}, diag = {} } = await res.json();
-const lines = [
-"paidVsBudget (raw): " + (kpis.paidVsBudget ?? 0),
-"paidVsBudget (%): " + ((kpis.paidVsBudget ?? 0) * 100).toFixed(2) + "%",
-"deliverablesProgress (raw): " + (kpis.deliverablesProgress ?? 0),
-"deliverablesProgress (%): " + ((kpis.deliverablesProgress ?? 0) * 100).toFixed(0) + "%",
-"overBudgetCount: " + (kpis.overBudgetCount ?? 0),
-"daysToLaunch: " + (kpis.daysToLaunch ?? 0),
-"",
-"diag.milestonesCount: " + (diag.milestonesCount ?? 0),
-"diag.paidVsBudget_usedRows: " + (diag.paidVsBudget_usedRows ?? 0),
-"diag.deliverables_usedRows: " + (diag.deliverables_usedRows ?? 0),
-"diag.hasLaunchDate: " + (!!diag.hasLaunchDate)
-];
-out.textContent = lines.join("n");
-} catch (e) {
-out.textContent = "Error: " + e.message;
-}
-});
-</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renovation Project Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Aquafina+Script&family=Lato:wght@400;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Lato', sans-serif; 
+            background-color: #0f172a; 
+            background-image: radial-gradient(circle at top left, rgba(14, 165, 233, 0.05), transparent 40%),
+                              radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.05), transparent 50%);
+            color: #e2e8f0; 
+        }
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+        }
+        .font-accent {
+            font-family: 'Aquafina Script', cursive;
+        }
+        .hero-video-iframe { position: absolute; top: 50%; left: 50%; width: 100vw; height: 56.25vw; min-height: 100%; min-width: 177.77vh; transform: translate(-50%, -50%); z-index: 1; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        .gate-accordion[open] summary .gate-arrow { transform: rotate(180deg); }
+        .gate-accordion summary { transition: background-color 0.2s ease-in-out; }
+        .gate-accordion summary:hover { background-color: #1e293b; }
+        .tab-btn { transition: all 0.2s ease-in-out; }
+        .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        .kpi-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2); }
+        .spinner { border-top-color: #38bdf8; animation: spin 1s linear infinite; }
+        .fade-in-section { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+        .fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <main class="max-w-6xl mx-auto">
+        <section class="h-80 sm:h-96 rounded-2xl shadow-lg flex flex-col justify-center items-center text-center p-6 mb-8 relative overflow-hidden">
+            <iframe class="hero-video-iframe" src="https://player.vimeo.com/video/1121406919?background=1&autoplay=1&loop=1&muted=1" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            <div class="absolute inset-0 bg-black/60 z-10"></div>
+            <div class="relative z-20">
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight">A Transformation in Progress</h1>
+                <p class="font-accent mt-4 text-4xl text-sky-300">The Shah Alam Residence</p>
+            </div>
+        </section>
+
+        <header class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 fade-in-section">
+            <div><h1 class="text-3xl sm:text-4xl font-bold text-slate-100">📊 Project Health & Status</h1></div>
+            <div><button id="generate-summary-btn" class="inline-flex items-center gap-2 bg-sky-500 text-white font-semibold px-5 py-2.5 rounded-lg shadow-md hover:bg-sky-600 transition disabled:bg-slate-700 disabled:cursor-not-allowed w-full sm:w-auto">✨ Generate AI Summary</button></div>
+        </header>
+        
+        <section id="kpi-container" class="mb-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 fade-in-section"></section>
+
+        <div class="border-b border-slate-800 mb-8 fade-in-section">
+            <nav id="tab-nav" class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-base" data-tab="gates">🚀 Gates & Progress</button>
+                <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-base text-slate-400 hover:text-white border-transparent" data-tab="financials">💳 Financials</button>
+            </nav>
+        </div>
+
+        <div id="tab-content-container" class="fade-in-section">
+            <div id="gates-content" class="tab-content active">
+                <section id="gates-section" class="space-y-4"></section>
+                <section id="uncategorized-section" class="mt-8"></section>
+            </div>
+            <div id="financials-content" class="tab-content"><section id="payments-section" class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h2 class="text-3xl font-bold text-slate-100 mb-4">⏳ Upcoming & Overdue</h2><div id="upcoming-payments-container" class="space-y-3"></div></div><div><h2 class="text-3xl font-bold text-slate-100 mb-4">🧾 Payment History</h2><div id="payment-history-container" class="space-y-3"></div></div></section></div>
+        </div>
+
+        <div id="status-container" class="text-center p-8 text-slate-400"><div class="spinner w-8 h-8 mx-auto"></div><p class="mt-4">Loading Live Project Data...</p></div>
+    </main>
+    
+    <div id="gemini-modal" class="modal-overlay fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none"><div class="modal-container bg-slate-800 border border-slate-700 w-full max-w-2xl rounded-lg shadow-2xl relative scale-95 p-6"><h3 id="gemini-modal-title" class="text-3xl font-bold text-slate-100 mb-4 font-heading">AI Assistant</h3><div id="gemini-modal-content" class="text-slate-300 space-y-4 prose prose-invert max-h-[60vh] overflow-y-auto"></div><button class="close-modal-btn absolute top-4 right-4 text-slate-400 hover:text-slate-100 transition"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg></button></div></div>
+    
+    <script>
+        let projectData = null;
+        const GATES_CONFIG = [
+            { id: 'G1 Concept', title: 'Concept' }, { id: 'G2 Schematic', title: 'Schematic' }, { id: 'G3 Design Development', title: 'Design Development' },
+            { id: 'G4 Authority Submission', title: 'Authority Submission' }, { id: 'G5 Construction Documentation', title: 'Construction Documentation' }, { id: 'G6 Close-out', title: 'Close-out' }
+        ];
+
+        const kpiContainer = document.getElementById('kpi-container'), statusContainer = document.getElementById('status-container'), gatesSection = document.getElementById('gates-section'), uncategorizedSection = document.getElementById('uncategorized-section'), generateSummaryBtn = document.getElementById('generate-summary-btn'), geminiModal = document.getElementById('gemini-modal'), upcomingPaymentsContainer = document.getElementById('upcoming-payments-container'), paymentHistoryContainer = document.getElementById('payment-history-container');
+
+        const formatCurrency = (val) => new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(val);
+        const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : 'N/A';
+        const getStatusIcon = (status) => ({'Approved':'✅','Submitted':'⏳','Rejected':'❌','Missing':'📋'}[status]||'📋');
+        
+        function renderKPIs(kpis) {
+             kpiContainer.innerHTML = `
+                <div class="kpi-card bg-slate-900/70 backdrop-blur-sm p-6 rounded-lg border border-slate-800"><div><h3 class="font-heading text-lg font-semibold text-slate-400">🗓️ Days to Launch</h3><p class="font-heading text-4xl font-extrabold text-slate-100 mt-2">${kpis.daysToLaunch}</p></div></div>
+                <div class="kpi-card bg-slate-900/70 backdrop-blur-sm p-6 rounded-lg border border-slate-800"><div><h3 class="font-heading text-lg font-semibold text-slate-400">💰 Paid vs Budget</h3><p class="font-heading text-4xl font-extrabold text-slate-100 mt-2">${(kpis.paidVsBudget * 100).toFixed(1)}%</p></div></div>
+                <div class="kpi-card bg-slate-900/70 backdrop-blur-sm p-6 rounded-lg border border-slate-800"><div><h3 class="font-heading text-lg font-semibold text-slate-400">✅ Deliverables</h3><p class="font-heading text-4xl font-extrabold text-slate-100 mt-2">${(kpis.deliverablesProgress * 100).toFixed(0)}%</p></div></div>
+                <div class="kpi-card bg-slate-900/70 backdrop-blur-sm p-6 rounded-lg border border-slate-800"><div><h3 class="font-heading text-lg font-semibold text-slate-400">🚩 Over Budget Items</h3><p class="font-heading text-4xl font-extrabold text-red-400 mt-2">${kpis.overBudgetCount}</p></div></div>
+            `;
+        }
+
+        function renderGates(data) {
+            const deliverableStatusPriority = { 'Missing': 1, 'Rejected': 2, 'Submitted': 3, 'Approved': 4 };
+            
+            gatesSection.innerHTML = GATES_CONFIG.map((gate, index) => {
+                const gateMilestones = data.milestones.filter(m => m.phase === gate.id);
+                const gateDeliverables = data.deliverables.filter(d => d.gate === gate.id)
+                    .sort((a,b) => deliverableStatusPriority[a.status] - deliverableStatusPriority[b.status]);
+
+                const isGateComplete = gateMilestones.length > 0 && gateMilestones.every(m => m.status === 'Complete') && gateDeliverables.every(d => d.status === 'Approved');
+                
+                return `
+                <details class="gate-accordion bg-slate-900/70 backdrop-blur-sm border border-slate-800 rounded-lg overflow-hidden" ${index === 0 ? 'open' : ''}>
+                    <summary class="flex justify-between items-center p-6 cursor-pointer"><div class="flex items-center gap-4"><span class="font-sans flex items-center justify-center w-10 h-10 rounded-full ${isGateComplete ? 'bg-green-500/20' : 'bg-slate-800'} text-sky-400 font-bold text-lg">${gate.id.split(' ')[0]}</span><h3 class="text-2xl font-bold text-slate-100">${gate.title}</h3></div><svg class="gate-arrow w-6 h-6 text-slate-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></summary>
+                    <div class="p-6 border-t border-slate-800 space-y-6">
+                        <div><h4 class="font-heading text-lg font-semibold text-slate-300 mb-3">📋 Required Deliverables (${gateDeliverables.filter(d=>d.status === 'Approved').length}/${gateDeliverables.length})</h4><div class="space-y-2">${gateDeliverables.length > 0 ? gateDeliverables.map(d => `<div class="flex items-center justify-between p-3 bg-slate-800 rounded-md border border-slate-700"><div class="flex items-center"><span class="mr-3">${getStatusIcon(d.status)}</span><span class="text-slate-300">${d.title}</span></div>${d.status === 'Missing' ? `<a href="https://opaque-alto-89e.notion.site/2725a80cd067808e95add9847410d8b5" target="_blank" class="text-sm font-semibold text-sky-400 hover:text-sky-300">Submit</a>` : `<span class="text-sm font-medium ${{'Approved':'text-green-400','Submitted':'text-yellow-400','Rejected':'text-red-400'}[d.status]||'text-slate-400'}">${d.status}</span>`}</div>`).join('') : '<p class="text-sm text-slate-500">No deliverables for this gate.</p>'}</div></div>
+                        <div><h4 class="font-heading text-lg font-semibold text-slate-300 mb-3">🛠️ Related Milestones</h4><div class="space-y-3">${gateMilestones.length > 0 ? gateMilestones.map(m => {
+                            const indicatorText = m.indicator.replace(/_|-/g, " ").replace(/🟢|🟠|🔴/g, '').trim();
+                            const indicatorColor = m.indicator.includes('🔴') ? 'text-red-400' : m.indicator.includes('🟠') ? 'text-amber-400' : 'text-green-400';
+                            const indicatorIcon = m.indicator.includes('🔴') ? '🔴' : m.indicator.includes('🟠') ? '🟠' : '🟢';
+                            return `
+                            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="font-semibold text-slate-100">${m.title}</h4>
+                                    <span class="text-xs font-semibold px-2 py-1 rounded-full ${m.riskStatus === 'At Risk' ? 'bg-red-500/20 text-red-400' : 'bg-sky-500/20 text-sky-400'}">${m.riskStatus}</span>
+                                </div>
+                                <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+                                    <span class="font-semibold">Financials</span>
+                                    <span class="flex items-center gap-1.5 ${indicatorColor} font-semibold">${indicatorIcon} ${indicatorText}</span>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                        <span>Progress</span>
+                                        <span>${(m.progress * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-700 rounded-full h-1.5">
+                                        <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${(m.progress * 100)}%"></div>
+                                    </div>
+                                </div>
+                            </div>`
+                        }).join('') : '<p class="text-sm text-slate-500">No milestones for this phase.</p>'}</div></div>
+                    </div>
+                </details>`;
+            }).join('');
+            
+            const uncategorizedDeliverables = data.deliverables.filter(d => d.gate === 'Uncategorized');
+            if (uncategorizedDeliverables.length > 0) {
+                uncategorizedSection.innerHTML = `
+                    <h3 class="font-heading text-2xl font-bold text-amber-400 mb-4">⚠️ Uncategorized Deliverables</h3>
+                    <div class="bg-slate-900/70 backdrop-blur-sm border border-slate-800 rounded-lg p-6 space-y-2">
+                        <p class="text-sm text-slate-400 mb-3">The following items have been submitted but not yet assigned to a specific gate:</p>
+                        ${uncategorizedDeliverables.map(d => `<div class="flex items-center justify-between p-3 bg-slate-800 rounded-md border border-slate-700"><div class="flex items-center"><span class="mr-3">${getStatusIcon(d.status)}</span><span class="text-slate-300">${d.title}</span></div><a href="" target="_blank" class="text-sm font-semibold text-sky-400 hover:text-sky-300">Assign Gate</a></div>`).join('')}
+                    </div>
+                `;
+            } else {
+                uncategorizedSection.innerHTML = '';
+            }
+        }
+        
+        function renderPayments(payments) {
+            const upcoming = payments.filter(p => p.status !== 'Paid').sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const history = payments.filter(p => p.status === 'Paid').sort((a,b) => new Date(b.paidDate) - new Date(a.paidDate));
+            const paymentCard = (p) => {
+                const isOverdue = p.status === 'Overdue';
+                const isOutstanding = p.status === 'Outstanding';
+                const cardColor = isOverdue ? 'bg-red-900/30 border-red-500/30' : isOutstanding ? 'bg-amber-900/30 border-amber-500/30' : 'bg-slate-800/50 border-slate-700';
+                const titleColor = isOverdue ? 'text-red-300' : 'text-slate-100';
+                const statusColor = isOverdue ? 'text-red-400' : isOutstanding ? 'text-amber-400' : 'text-green-400';
+                return `<div class="p-4 rounded-lg border ${cardColor} backdrop-blur-sm"><div class="flex justify-between items-center"><div><p class="font-semibold ${titleColor}">${p.title}</p><p class="text-sm text-slate-400">${p.vendor}</p></div><div class="text-right"><p class="font-heading font-bold text-lg text-slate-100">${formatCurrency(p.amount)}</p><p class="text-sm font-bold ${statusColor}">${p.status}</p></div></div><p class="text-xs text-slate-500 mt-2">Due: ${formatDate(p.dueDate)}</p></div>`;
+            };
+            upcomingPaymentsContainer.innerHTML = upcoming.length ? upcoming.map(paymentCard).join('') : '<p class="text-sm text-slate-500">No upcoming payments.</p>';
+            paymentHistoryContainer.innerHTML = history.length ? history.map(paymentCard).join('') : '<p class="text-sm text-slate-500">No payment history.</p>';
+        }
+
+        async function fetchData() {
+            generateSummaryBtn.disabled = true;
+            try {
+                const response = await fetch('/.netlify/functions/proxy');
+                if (!response.ok) throw new Error((await response.text()) || 'Failed to fetch project data.');
+                projectData = await response.json();
+                renderKPIs(projectData.kpis);
+                renderGates(projectData);
+                renderPayments(projectData.payments);
+                statusContainer.style.display = 'none';
+                generateSummaryBtn.disabled = false;
+                
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.1 });
+                document.querySelectorAll('.fade-in-section').forEach(section => {
+                    observer.observe(section);
+                });
+
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                statusContainer.innerHTML = `<div class="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-md"><strong>Error:</strong> Failed to load project data. ${error.message}</div>`;
+            }
+        }
+        
+        document.getElementById('tab-nav').addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const tabName = e.target.dataset.tab;
+                document.querySelectorAll('#tab-nav .tab-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                document.querySelectorAll('#tab-content-container .tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(`${tabName}-content`).classList.add('active');
+            }
+        });
+        
+        gatesSection.addEventListener('click', (e) => { 
+            if (e.target.classList.contains('submit-deliverable-btn')) {
+                window.open(NOTION_UPLOAD_URL, '_blank');
+            }
+        });
+        uncategorizedSection.addEventListener('click', (e) => {
+             if (e.target.tagName === 'A') {
+                window.open(e.target.href, '_blank');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', fetchData);
+
+        function openModal(modal) {
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.modal-container').classList.remove('scale-95');
+        }
+
+        function closeModal(modal) {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.modal-container').classList.add('scale-95');
+        }
+
+        document.querySelectorAll('.close-modal-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeModal(geminiModal);
+            });
+        });
+        
+        geminiModal.addEventListener('click', (e) => { 
+            if (e.target === geminiModal) {
+                closeModal(geminiModal);
+            }
+        });
+        
+        async function callGeminiAPI(type, data) { 
+            const modalTitle = document.getElementById('gemini-modal-title');
+            const modalContent = document.getElementById('gemini-modal-content');
+            modalTitle.textContent = type === 'summary' ? '✨ Project Summary' : '✨ AI Suggestions';
+            modalContent.innerHTML = `<div class="flex justify-center items-center p-8"><div class="spinner w-10 h-10 rounded-full border-4 border-slate-700"></div></div>`;
+            openModal(geminiModal);
+            try {
+                const response = await fetch('/.netlify/functions/proxy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, data })
+                });
+                if (!response.ok) { throw new Error(await response.text() || 'Request failed.'); }
+                const result = await response.json();
+                modalContent.innerHTML = result.text.replace(/\n/g, '<br>');
+            } catch (error) {
+                console.error('Gemini API Error:', error);
+                modalContent.innerHTML = `<div class="bg-red-500/20 text-red-400 p-4 rounded-md"><p><strong>Error:</strong> Could not get a response from the AI assistant.</p><p class="mt-2 text-sm">${error.message}</p></div>`;
+            }
+        }
+        generateSummaryBtn.addEventListener('click', () => { if (projectData) { callGeminiAPI('summary', projectData); }});
+    </script>
 </body>
 </html>
