@@ -11,13 +11,15 @@
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 	<style>
 		:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
+		.dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
 		html,body{height:100%}
 		body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--ink);}
 		.nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
 		.pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
 		.hr{height:1px; background: #e5e7eb;}
 		.top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
-		.kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:#fff}
+		.kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
+		.card{background:var(--panel)}
 	</style>
 </head>
 <body>
@@ -44,14 +46,18 @@
 		</aside>
 
 		<div class="flex flex-col">
-			<header class="bg-white top-shadow">
+			<header class="card top-shadow">
 				<div class="h-14 flex items-center justify-between px-6">
-					<p class="font-black tracking-wide text-slate-700">Dashboard</p>
-					<div class="text-xs text-slate-500">JOOBIN</div>
+					<p class="font-black tracking-wide">Dashboard</p>
+					<div class="flex items-center gap-3">
+						<button id="themeToggle" class="text-xs px-3 py-1 rounded border border-slate-300/50 hover:bg-slate-50 dark:hover:bg-slate-800">Dark</button>
+						<div class="text-xs opacity-70">JOOBIN</div>
+					</div>
 				</div>
 			</header>
 
 			<main class="p-6 space-y-6">
+				<!-- KPI strip -->
 				<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p><p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p></div>
 					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Deliverables Approved</p><p id="kpiDeliverables" class="text-3xl font-black">0%</p></div>
@@ -59,9 +65,10 @@
 					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Next 30d Due</p><p id="kpiNext30" class="text-3xl font-black">RM 0</p><p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p></div>
 				</section>
 
+				<!-- Alerts + Cashflow -->
 				<section class="grid grid-cols-12 gap-6">
-					<div class="col-span-12 lg:col-span-6 bg-white rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide text-slate-700 mb-3">Attention Board</h3>
+					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Attention Board</h3>
 						<div class="grid md:grid-cols-2 gap-4">
 							<div>
 								<p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue Payments</p>
@@ -85,29 +92,44 @@
 						</div>
 					</div>
 
-					<div class="col-span-12 lg:col-span-6 bg-white rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide text-slate-700 mb-3">Cashflow (Scheduled vs Paid)</h3>
+					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Cashflow (Scheduled vs Paid)</h3>
 						<canvas id="cashflowChart" height="120"></canvas>
 					</div>
 				</section>
 
-				<section class="bg-white rounded border border-slate-200 p-6">
-					<h3 class="font-black tracking-wide text-slate-700 mb-3">Gate Progress</h3>
-					<div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+				<!-- Gates and Top Vendors -->
+				<section class="grid grid-cols-12 gap-6">
+					<div class="col-span-12 xl:col-span-8 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Gate Progress</h3>
+						<div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+					</div>
+					<div class="col-span-12 xl:col-span-4 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Top Vendors Outstanding</h3>
+						<ul id="topVendors" class="space-y-2 text-sm"></ul>
+					</div>
 				</section>
 
-				<section class="bg-white rounded border border-slate-200 p-6">
+				<!-- AI Summary -->
+				<section class="card rounded border border-slate-200 p-6">
 					<div class="flex items-center justify-between">
-						<h3 class="font-black tracking-wide text-slate-700">Weekly AI Summary</h3>
+						<h3 class="font-black tracking-wide">Weekly AI Summary</h3>
 						<button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
 					</div>
-					<div id="summaryOut" class="mt-4 text-sm text-slate-700 whitespace-pre-line"></div>
+					<div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
 				</section>
 			</main>
 		</div>
 	</div>
 
 	<script>
+		// Theme toggle
+		const btn = document.getElementById('themeToggle');
+		function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
+		applyTheme(localStorage.getItem('theme') || 'light');
+		btn.addEventListener('click', ()=> applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
+
+		// Utilities
 		const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
 		const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
 
@@ -121,27 +143,27 @@
 			document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
 		}
 
-		function li(txt){ const li=document.createElement('li'); li.className='flex justify-between gap-3'; li.innerHTML=txt; return li; }
+		function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
 
 		function renderAlerts(a){
 			const overdue = document.getElementById('overdueList'); overdue.innerHTML='';
 			a.paymentsOverdue.slice(0,8).forEach(p=>{
-				overdue.appendChild(li(`<span class="truncate">${p.title}</span><span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-slate-500">${fmtDate(p.dueDate)}</span>`));
+				overdue.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
 			});
 
 			const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
 			a.paymentsUpcoming.slice(0,8).forEach(p=>{
-				upcoming.appendChild(li(`<span class="truncate">${p.title}</span><span class="text-amber-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-slate-500">${fmtDate(p.dueDate)}</span>`));
+				upcoming.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-amber-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
 			});
 
 			const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
 			a.deliverablesIssues.slice(0,8).forEach(d=>{
-				deliv.appendChild(li(`<span class="truncate">${d.title}</span><span class="text-xs font-bold ${d.status==='Rejected'?'text-rose-600':'text-slate-600'}">${d.status}</span>`));
+				deliv.appendChild(li(`<a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a><span class="text-xs font-bold ${d.status==='Rejected'?'text-rose-600':'text-slate-600'}">${d.status}</span>`));
 			});
 
 			const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
 			a.milestonesRisk.slice(0,8).forEach(m=>{
-				risk.appendChild(li(`<span class="truncate">${m.title}</span><span class="text-xs font-bold text-rose-600">${m.riskStatus}</span>`));
+				risk.appendChild(li(`<a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a><span class="text-xs font-bold text-rose-600">${m.riskStatus}</span>`));
 			});
 		}
 
@@ -158,8 +180,14 @@
 					{ label:'Scheduled', data:scheduled, backgroundColor:'#0f2133', borderRadius:6 },
 					{ label:'Paid', data:paid, backgroundColor:'#e11d48', borderRadius:6 }
 				]},
-				options:{ plugins:{legend:{position:'bottom'}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#eee'}, beginAtZero:true}}}
+				options:{ plugins:{legend:{position:'bottom'}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#2b3445'}, beginAtZero:true}}}
 			});
+		}
+
+		function renderTopVendors(list){
+			const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML = '';
+			list.forEach(r => ul.insertAdjacentHTML('beforeend',
+			  `<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
 		}
 
 		function renderGates(gates){
@@ -191,9 +219,14 @@
 			renderAlerts(dataCache.alerts);
 			renderCashflow(dataCache.cashflow);
 			renderGates(dataCache.gates);
+			renderTopVendors(dataCache.topVendors);
 		}
 
-		document.getElementById('genSummary').addEventListener('click', async ()=>{
+		// Auto-generate summary once after data load (7d implicitly reflected by current dataset)
+		let summaryOnce = false;
+		async function autoSummary(){
+			if (summaryOnce || !dataCache) return;
+			summaryOnce = true;
 			const resp = await fetch('/.netlify/functions/proxy', {
 				method:'POST',
 				headers:{'Content-Type':'application/json'},
@@ -201,9 +234,11 @@
 			});
 			const out = await resp.json();
 			document.getElementById('summaryOut').textContent = out.text || 'No response.';
-		});
+		}
 
-		loadData().catch(err=>console.error(err));
+		document.getElementById('genSummary').addEventListener('click', autoSummary);
+
+		loadData().then(autoSummary).catch(err=>console.error(err));
 	</script>
 </body>
 </html>
