@@ -1,416 +1,327 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Renovation Project Hub</title>
-	<script src="https://cdn.tailwindcss.com/"></script>
-	<link rel="preconnect" href="https://fonts.googleapis.com/">
-	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Project Dashboard</title>
+
+	<!-- Lato (Author: Łukasz Dziedzic / tyPoland) -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<!-- Regular + Bold/Black weights -->
+	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+	<!-- Tailwind -->
+	<script src="https://cdn.tailwindcss.com"></script>
+
+	<!-- Chart.js -->
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 	<style>
-		body {
-			font-family: 'Lato', sans-serif;
-			background-color: #1a2238; /* Deep Navy Blue */
-			color: #dbe1e8;
+		:root{
+			--bg:#f1f3f5;
+			--panel:#ffffff;
+			--ink:#0f172a;
+			--muted:#64748b;
+			--brand:#e11d48; /* rose/red accent */
+			--nav:#0f2133;   /* deep navy */
+			--nav-ink:#e2e8f0;
 		}
-		.hero-video-iframe { position: absolute; top: 50%; left: 50%; width: 100vw; height: 56.25vw; min-height: 100%; min-width: 177.77vh; transform: translate(-50%, -50%); z-index: 1; }
-		details > summary { list-style: none; }
-		details > summary::-webkit-details-marker { display: none; }
-		.gate-accordion[open] summary .gate-arrow { transform: rotate(180deg); }
-		.gate-accordion summary { transition: background-color 0.2s ease-in-out; }
-		.gate-accordion summary:hover { background-color: #2a344c; }
-		.tab-btn { transition: all 0.2s ease-in-out; }
-		.tab-btn.active { color: #8093f1; border-bottom-color: #8093f1; font-weight: 700; }
-		.tab-content { display: none; }
-		.tab-content.active { display: block; animation: fadeIn 0.5s ease-in-out; }
-		.kpi-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
-		.kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3); }
-		.spinner { 
-			border: 4px solid rgba(255,255,255,0.1);
-			border-top-color: #8093f1;
-			border-radius: 9999px;
-			width: 2rem;
-			height: 2rem;
-			animation: spin 1s linear infinite;
-		}
-		.fade-in-section { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
-		.fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
-		@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-		@keyframes spin { to { transform: rotate(360deg); } }
-		/* Focus styles */
-		:focus-visible { outline: 2px solid #8093f1; outline-offset: 2px; }
+		html,body{height:100%}
+		body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--ink);}
+		.nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
+		.pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
+		.hr{height:1px; background: #e5e7eb;}
+		.mini-bar{width:14px; border-radius:3px; background:#0f2133; position:relative; overflow:hidden}
+		.mini-bar::after{content:""; position:absolute; bottom:0; left:0; right:0; height:30%; background:#ef4444;}
+		.gauge { width: 220px; height: 110px; border-top-left-radius: 220px; border-top-right-radius: 220px;
+			background: conic-gradient(#e11d48 0 40%, #f97316 40% 70%, #10b981 70% 100%); position:relative; overflow:hidden;}
+		.gauge::before{ content:""; position:absolute; left:50%; top:100%; transform:translate(-50%,-50%); width:170px; height:170px; border-radius:100%;
+			background:var(--panel); box-shadow:0 -1px 0 0 rgba(0,0,0,.04) inset;}
+		.gauge-center{ position:absolute; left:50%; top:100%; transform:translate(-50%,-55%); text-align:center;}
+		.top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
 	</style>
 </head>
-<body class="p-4 md:p-8">
-	<main class="max-w-6xl mx-auto">
-		<section class="h-80 sm:h-96 rounded-2xl shadow-lg flex flex-col justify-center items-center text-center p-6 mb-8 relative overflow-hidden">
-			<iframe
-				class="hero-video-iframe"
-				src="https://player.vimeo.com/video/1121406919?background=1&autoplay=1&loop=1&muted=1?background=1&autoplay=1&muted=1&loop=1"
-				frameborder="0"
-				allow="autoplay; fullscreen; picture-in-picture"
-				allowfullscreen
-				muted
-			></iframe>
-			<div class="absolute inset-0 bg-black/60 z-10"></div>
-			<div class="relative z-20">
-				<h1 class="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight">A Transformation in Progress</h1>
-				<p class="mt-2 text-lg text-slate-300">The Shah Alam Residence Project</p>
-			</div>
-		</section>
+<body>
+	<div class="min-h-screen grid grid-cols-[260px_1fr]">
 
-		<header class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 fade-in-section">
-			<div>
-				<h1 class="text-3xl sm:text-4xl font-black text-slate-100">Project Health & Status</h1>
+		<!-- Sidebar -->
+		<aside class="bg-[var(--nav)] text-[var(--nav-ink)]">
+			<div class="p-6 flex items-center gap-3">
+				<div class="w-9 h-9 rounded bg-white/10 grid place-items-center">
+					<div class="w-5 h-5 rotate-45 bg-[var(--brand)]"></div>
+				</div>
+				<div class="leading-tight">
+					<p class="font-black tracking-wide">LOREM IPSUM</p>
+					<p class="text-[10px] opacity-70">DOLOR SIT AMET</p>
+				</div>
 			</div>
-			<div>
-				<button id="generate-summary-btn" class="inline-flex items-center gap-2 bg-blue-600 text-white font-bold px-5 py-2.5 rounded-lg shadow-md hover:bg-blue-700 transition disabled:bg-slate-600 disabled:cursor-not-allowed w-full sm:w-auto">✨ Generate AI Summary</button>
-			</div>
-		</header>
 
-		<section id="kpi-container" class="mb-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 fade-in-section"></section>
-
-		<div class="border-b border-slate-700 mb-8 fade-in-section">
-			<nav id="tab-nav" class="-mb-px flex space-x-8" aria-label="Tabs" role="tablist">
-				<button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-base" data-tab="gates" role="tab" aria-selected="true" aria-controls="gates-content">🚀 Gates & Progress</button>
-				<button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-base text-slate-400 hover:text-white border-transparent" data-tab="financials" role="tab" aria-selected="false" aria-controls="financials-content">💳 Financials</button>
+			<nav class="mt-6 text-sm">
+				<div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
+				<ul>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>PAGES</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>PROFILE</span><span class="pill">NEW</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>SETTINGS</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>PROJECTS</span><span class="pill">NEW</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>TASKS</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>FORMS</span></a></li>
+				</ul>
 			</nav>
-		</div>
+		</aside>
 
-		<div id="tab-content-container" class="fade-in-section">
-			<div id="gates-content" class="tab-content active" role="tabpanel">
-				<section id="gates-section" class="space-y-4"></section>
-				<section id="uncategorized-section" class="mt-8"></section>
-			</div>
-			<div id="financials-content" class="tab-content" role="tabpanel">
-				<section id="payments-section" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-					<div>
-						<h2 class="text-3xl font-black text-slate-100 mb-4">⏳ Upcoming & Overdue</h2>
-						<div id="upcoming-payments-container" class="space-y-3"></div>
+		<!-- Main -->
+		<div class="flex flex-col">
+
+			<!-- Top bar -->
+			<header class="bg-white top-shadow">
+				<div class="h-14 flex items-center justify-between px-6">
+					<div class="flex items-center gap-4">
+						<button class="w-8 h-8 grid place-items-center rounded hover:bg-slate-100" aria-label="Menu">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+							</svg>
+						</button>
+						<p class="font-black tracking-wide text-slate-700">DASHBOARD</p>
 					</div>
-					<div>
-						<h2 class="text-3xl font-black text-slate-100 mb-4">🧾 Payment History</h2>
-						<div id="payment-history-container" class="space-y-3"></div>
+					<div class="flex items-center gap-4">
+						<div class="relative">
+							<span class="absolute -top-1 -right-1 pill">5</span>
+							<div class="w-8 h-8 rounded bg-slate-800 grid place-items-center">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7v3.764l-1.447 2.894A1 1 0 004.447 17h15.106a1 1 0 00.894-1.447L19 12.764V9a7 7 0 00-7-7z"/><path d="M6 19a6 6 0 0012 0H6z"/></svg>
+							</div>
+						</div>
+						<div class="text-xs text-slate-500">LOREM IPSUM</div>
+					</div>
+				</div>
+			</header>
+
+			<!-- Content -->
+			<main class="p-6 space-y-6">
+
+				<!-- Top 3 tiles -->
+				<section class="grid grid-cols-12 gap-4">
+					<div class="col-span-12 md:col-span-5 bg-white rounded border border-slate-200 p-4">
+						<canvas id="heroChartA" class="w-full h-40"></canvas>
+						<div class="mt-3 w-full h-10 bg-slate-100 rounded grid place-items-center">
+							<p class="text-xs text-slate-500">Overview A</p>
+						</div>
+					</div>
+					<div class="col-span-12 md:col-span-5 bg-white rounded border border-slate-200 p-4">
+						<canvas id="heroChartB" class="w-full h-40"></canvas>
+						<div class="mt-3 w-full h-10 bg-slate-100 rounded grid place-items-center">
+							<p class="text-xs text-slate-500">Overview B</p>
+						</div>
+					</div>
+					<div class="col-span-12 md:col-span-2 bg-white rounded border border-slate-200 p-4">
+						<canvas id="heroChartC" class="w-full h-52"></canvas>
 					</div>
 				</section>
-			</div>
-		</div>
 
-		<div id="status-container" class="text-center p-8 text-slate-400">
-			<div class="spinner w-8 h-8 mx-auto"></div>
-			<p class="mt-4">Loading Live Project Data...</p>
-		</div>
-	</main>
+				<!-- Middle row -->
+				<section class="grid grid-cols-12 gap-6">
+					<!-- Gauge + totals -->
+					<div class="col-span-12 lg:col-span-8 bg-white rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-4 text-slate-700">CONSECTETUER</h3>
+						<div class="grid grid-cols-12 gap-6 items-center">
+							<div class="col-span-12 md:col-span-4 flex justify-center">
+								<div class="gauge">
+									<div class="gauge-center">
+										<p class="text-xs uppercase tracking-widest text-[var(--muted)]">Speed</p>
+										<p id="gaugePct" class="text-2xl font-black">40%</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-span-12 md:col-span-8 grid grid-cols-2 gap-6">
+								<div>
+									<p class="uppercase text-xs tracking-widest text-[var(--muted)]">Total</p>
+									<p id="totalA" class="text-3xl font-black">20.256</p>
+									<p class="text-[10px] text-rose-600 font-black mt-1">LOREM IPSUM</p>
+								</div>
+								<div>
+									<p class="uppercase text-xs tracking-widest text-[var(--muted)]">Total</p>
+									<p id="totalB" class="text-3xl font-black">20.256</p>
+									<p class="text-[10px] text-rose-600 font-black mt-1">LOREM IPSUM</p>
+								</div>
+								<p id="midCopy" class="col-span-2 text-sm text-[var(--muted)] leading-relaxed">
+									Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed diam.
+								</p>
+							</div>
+						</div>
+					</div>
 
-	<!-- Modal -->
-	<div id="gemini-modal" class="modal-overlay fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
-		<div class="modal-container bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-lg shadow-2xl relative scale-95 p-6">
-			<h3 id="gemini-modal-title" class="text-3xl font-black text-slate-100 mb-4">AI Assistant</h3>
-			<div id="gemini-modal-content" class="text-slate-300 space-y-4 prose prose-invert max-h-[60vh] overflow-y-auto"></div>
-			<button class="close-modal-btn absolute top-4 right-4 text-slate-400 hover:text-slate-100 transition" aria-label="Close">
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
-				</svg>
-			</button>
+					<!-- Alert metrics -->
+					<div class="col-span-12 lg:col-span-4 bg-white rounded border border-slate-200 p-6">
+						<div class="flex items-center gap-3 mb-4">
+							<div class="w-12 h-12 rounded bg-rose-500 grid place-items-center text-white">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 8-8 8-8-8 8-8z"/></svg>
+							</div>
+							<h3 class="font-black tracking-wide text-slate-700">CONSECTETUER</h3>
+						</div>
+						<p class="uppercase text-xs tracking-widest text-[var(--muted)]">Total</p>
+						<p id="alertTotal" class="text-3xl font-black">13.25</p>
+						<p class="text-[10px] text-rose-600 font-black mt-1">LOREM IPSUM</p>
+						<div class="mt-4 flex items-end gap-3">
+							<div class="mini-bar" style="height:62px"></div>
+							<div class="mini-bar" style="height:76px"></div>
+							<div class="mini-bar" style="height:58px"></div>
+							<div class="mini-bar" style="height:70px"></div>
+						</div>
+						<p class="mt-4 text-sm text-[var(--muted)]">
+							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed diam
+						</p>
+					</div>
+				</section>
+
+				<!-- Bottom row -->
+				<section class="grid grid-cols-12 gap-6">
+					<div class="col-span-12 lg:col-span-6 bg-white rounded border border-slate-200 p-6">
+						<div class="flex items-center gap-2">
+							<h3 class="font-black tracking-wide text-slate-700">DIAM NONUMMY</h3>
+						</div>
+						<p id="descA" class="text-sm text-[var(--muted)] mt-2">
+							Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy.
+						</p>
+						<div class="hr my-5"></div>
+						<div class="grid grid-cols-[1fr_auto] gap-6 items-center">
+							<canvas id="areaChart" height="90"></canvas>
+							<span class="pill">NEW</span>
+						</div>
+					</div>
+
+					<div class="col-span-12 lg:col-span-6 bg-white rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide text-slate-700">TOTAL</h3>
+						<div class="flex items-baseline gap-4 mt-2">
+							<p id="totalMain" class="text-3xl font-black">35.256</p>
+							<span class="pill">NEW</span>
+						</div>
+						<div class="mt-6">
+							<div class="w-full h-3 rounded bg-slate-200 overflow-hidden">
+								<div id="progA" class="h-full bg-emerald-600" style="width:74%"></div>
+							</div>
+							<div class="mt-4 w-full h-3 rounded bg-slate-200 overflow-hidden">
+								<div id="progB" class="h-full bg-slate-800" style="width:60%"></div>
+							</div>
+						</div>
+						<div class="mt-6 grid grid-cols-2 gap-6">
+							<canvas id="barChart" height="80"></canvas>
+							<canvas id="doughnutChart" height="80"></canvas>
+						</div>
+					</div>
+				</section>
+
+				<!-- AI Summary -->
+				<section class="bg-white rounded border border-slate-200 p-6">
+					<div class="flex items-center justify-between">
+						<h3 class="font-black tracking-wide text-slate-700">Weekly AI Summary</h3>
+						<button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
+					</div>
+					<div id="summaryOut" class="mt-4 text-sm text-slate-700 whitespace-pre-line"></div>
+				</section>
+
+			</main>
 		</div>
 	</div>
 
 	<script>
-		// Config
-		const NOTION_UPLOAD_URL = ""; // Designer’s Upload Portal
-		const NOTION_ASSIGN_URL = ""; // Single-page approvals
+		// Charts palette
+		const brand = '#e11d48', navy = '#0f2133', slate = '#64748b';
 
-		let projectData = null;
-		const GATES_CONFIG = [
-			{ id: 'G1 Concept', title: 'Concept' },
-			{ id: 'G2 Schematic', title: 'Schematic' },
-			{ id: 'G3 Design Development', title: 'Design Development' },
-			{ id: 'G4 Authority Submission', title: 'Authority Submission' },
-			{ id: 'G5 Construction Documentation', title: 'Construction Documentation' },
-			{ id: 'G6 Close-out', title: 'Close-out' }
-		];
+		const heroA = new Chart(document.getElementById('heroChartA'), {
+			type: 'bar',
+			data: { labels:['A','B','C','D','E'], datasets:[{ data:[12,18,14,20,16], backgroundColor:[navy,navy,navy,brand,navy], borderRadius:6 }] },
+			options: { plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#eee'}, beginAtZero:true }} }
+		});
+		const heroB = new Chart(document.getElementById('heroChartB'), {
+			type: 'line',
+			data: { labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets:[{ data:[10,12,11,15,19,17,20], borderColor:brand, backgroundColor:'rgba(225,29,72,.12)', fill:true, tension:.35, pointRadius:0 }]},
+			options: { plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#eee'}}}}
+		});
+		const heroC = new Chart(document.getElementById('heroChartC'), {
+			type: 'doughnut',
+			data: { labels:['Done','In Progress','Blocked'], datasets:[{ data:[60,30,10], backgroundColor:['#10b981',navy,brand], borderWidth:0 }]},
+			options: { cutout:'70%', plugins:{legend:{display:false}} }
+		});
 
-		const kpiContainer = document.getElementById('kpi-container'),
-			statusContainer = document.getElementById('status-container'),
-			gatesSection = document.getElementById('gates-section'),
-			uncategorizedSection = document.getElementById('uncategorized-section'),
-			generateSummaryBtn = document.getElementById('generate-summary-btn'),
-			geminiModal = document.getElementById('gemini-modal'),
-			upcomingPaymentsContainer = document.getElementById('upcoming-payments-container'),
-			paymentHistoryContainer = document.getElementById('payment-history-container');
+		const areaChart = new Chart(document.getElementById('areaChart'), {
+			type: 'line',
+			data: { labels:[], datasets:[{ data:[], fill:true, tension:.35, borderColor:brand, backgroundColor:'rgba(225,29,72,0.12)', pointRadius:0 }]},
+			options: { plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}, ticks:{color:slate}}, y:{grid:{color:'#eee'}, ticks:{color:slate}, beginAtZero:true}}}
+		});
+		const barChart = new Chart(document.getElementById('barChart'), {
+			type: 'bar',
+			data: { labels:[], datasets:[{ data:[], backgroundColor:[], borderRadius:6 }]},
+			options: { plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}, ticks:{color:slate}}, y:{grid:{color:'#eee'}, ticks:{color:slate}, beginAtZero:true}}}
+		});
+		const doughnutChart = new Chart(document.getElementById('doughnutChart'), {
+			type: 'doughnut',
+			data: { labels:['Approved','Submitted','Missing'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981', '#f59e0b', brand], borderWidth:0 }]},
+			options: { cutout:'70%', plugins:{ legend:{ position:'bottom', labels:{ color: slate } } } }
+		});
 
-		const formatCurrency = (val) => new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(val);
-		const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : 'N/A';
-		const getStatusIcon = (status) => ({'Approved':'✅','Submitted':'⏳','Rejected':'❌','Missing':'📋'}[status]||'📋');
-
-		function renderKPIs(kpis) {
-			kpiContainer.innerHTML = `
-				<div class="kpi-card bg-slate-800 p-6 rounded-lg border border-slate-700">
-					<div><h3 class="text-md font-bold text-slate-400">🗓️ Days to Launch</h3><p class="text-4xl font-black text-slate-100 mt-2">\${kpis.daysToLaunch}</p></div>
-				</div>
-				<div class="kpi-card bg-slate-800 p-6 rounded-lg border border-slate-700">
-					<div><h3 class="text-md font-bold text-slate-400">💰 Paid vs Budget</h3><p class="text-4xl font-black text-slate-100 mt-2">\${(kpis.paidVsBudget * 100).toFixed(1)}%</p></div>
-				</div>
-				<div class="kpi-card bg-slate-800 p-6 rounded-lg border border-slate-700">
-					<div><h3 class="text-md font-bold text-slate-400">✅ Deliverables</h3><p class="text-4xl font-black text-slate-100 mt-2">\${(kpis.deliverablesProgress * 100).toFixed(0)}%</p></div>
-				</div>
-				<div class="kpi-card bg-slate-800 p-6 rounded-lg border border-slate-700">
-					<div><h3 class="text-md font-bold text-slate-400">🚩 Over Budget Items</h3><p class="text-4xl font-black text-red-400 mt-2">\${kpis.overBudgetCount}</p></div>
-				</div>
-			`;
-		}
-
-		function renderGates(data) {
-			const deliverableStatusPriority = { 'Missing': 1, 'Rejected': 2, 'Submitted': 3, 'Approved': 4 };
-
-			gatesSection.innerHTML = GATES_CONFIG.map((gate, index) => {
-				const gateMilestones = data.milestones.filter(m => m.phase === gate.id);
-				const gateDeliverables = data.deliverables
-					.filter(d => d.gate === gate.id)
-					.sort((a,b) => deliverableStatusPriority[a.status] - deliverableStatusPriority[b.status]);
-
-				const isGateComplete = gateMilestones.length > 0 && gateMilestones.every(m => m.status === 'Complete') && gateDeliverables.every(d => d.status === 'Approved');
-
-				return `
-					<details class="gate-accordion bg-slate-800 border border-slate-700 rounded-lg overflow-hidden" ${index === 0 ? 'open' : ''}>
-						<summary class="flex justify-between items-center p-6 cursor-pointer">
-							<div class="flex items-center gap-4">
-								<span class="flex items-center justify-center w-10 h-10 rounded-full ${isGateComplete ? 'bg-green-600/20' : 'bg-slate-700'} text-blue-400 font-bold text-lg">\${gate.id.split(' ')[0]}</span>
-								<h3 class="text-2xl font-black text-slate-100">\${gate.title}</h3>
-							</div>
-							<svg class="gate-arrow w-6 h-6 text-slate-400 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-							</svg>
-						</summary>
-						<div class="p-6 border-t border-slate-700 space-y-6">
-							<div>
-								<h4 class="text-lg font-bold text-slate-300 mb-3">📋 Required Deliverables (\${gateDeliverables.filter(d=>d.status === 'Approved').length}/\${gateDeliverables.length})</h4>
-								<div class="space-y-2">
-									${
-										gateDeliverables.length > 0
-											? gateDeliverables.map(d => `
-												<div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-md border border-slate-600">
-													<div class="flex items-center">
-														<span class="mr-3">\${getStatusIcon(d.status)}</span>
-														<span class="text-slate-300">\${d.title}</span>
-													</div>
-													${
-														d.status === 'Missing'
-															? `<a href="${NOTION_UPLOAD_URL}" target="_blank" class="text-sm font-bold text-blue-400 hover:text-blue-300">Submit</a>`
-															: `<span class="text-sm font-bold ${({'Approved':'text-green-400','Submitted':'text-yellow-400','Rejected':'text-red-400'}[d.status]||'text-slate-400')}">\${d.status}</span>`
-													}
-												</div>
-											`).join('')
-											: '<p class="text-sm text-slate-500">No deliverables for this gate.</p>'
-									}
-								</div>
-							</div>
-
-							<div>
-								<h4 class="text-lg font-bold text-slate-300 mb-3">🛠️ Related Milestones</h4>
-								<div class="space-y-3">
-									${
-										gateMilestones.length > 0
-											? gateMilestones.map(m => {
-												const indicatorText = m.indicator.replace(/_|-/g, " ").replace(/🟢|🟠|🔴/g, '').trim();
-												const indicatorColor = m.indicator.includes('🔴') ? 'text-red-400' : m.indicator.includes('🟠') ? 'text-amber-400' : 'text-green-400';
-												const indicatorIcon = m.indicator.includes('🔴') ? '🔴' : m.indicator.includes('🟠') ? '🟠' : '🟢';
-												return `
-													<div class="bg-slate-700/50 p-4 rounded-lg border border-slate-600">
-														<div class="flex justify-between items-start">
-															<h4 class="font-bold text-slate-100">\${m.title}</h4>
-															<span class="text-xs font-bold px-2 py-1 rounded-full \${m.riskStatus === 'At Risk' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}">\${m.riskStatus}</span>
-														</div>
-														<div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-															<span class="font-bold">Financials</span>
-															<span class="flex items-center gap-1.5 \${indicatorColor} font-bold">\${indicatorIcon} \${indicatorText}</span>
-														</div>
-														<div class="mt-3">
-															<div class="flex justify-between text-xs text-slate-400 mb-1">
-																<span>Progress</span>
-																<span>\${(m.progress * 100).toFixed(0)}%</span>
-															</div>
-															<div class="w-full bg-slate-600 rounded-full h-1.5">
-																<div class="bg-blue-500 h-1.5 rounded-full" style="width: \${(m.progress * 100)}%"></div>
-															</div>
-														</div>
-													</div>
-												`;
-											}).join('')
-											: '<p class="text-sm text-slate-500">No milestones for this phase.</p>'
-									}
-								</div>
-							</div>
-						</div>
-					</details>
-				`;
-			}).join('');
-
-			const uncategorizedDeliverables = data.deliverables.filter(d => d.gate === 'Uncategorized');
-			if (uncategorizedDeliverables.length > 0) {
-				uncategorizedSection.innerHTML = `
-					<h3 class="text-2xl font-black text-amber-400 mb-4">⚠️ Uncategorized Deliverables</h3>
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-2">
-						<p class="text-sm text-slate-400 mb-3">The following items have been submitted but not yet assigned to a specific gate:</p>
-						${
-							uncategorizedDeliverables.map(d => `
-								<div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-md border border-slate-600">
-									<div class="flex items-center">
-										<span class="mr-3">\${getStatusIcon(d.status)}</span>
-										<span class="text-slate-300">\${d.title}</span>
-									</div>
-									<a href="${NOTION_ASSIGN_URL}" target="_blank" class="text-sm font-bold text-blue-400 hover:text-blue-300">Assign Gate</a>
-								</div>
-							`).join('')
-						}
-					</div>
-				`;
-			} else {
-				uncategorizedSection.innerHTML = '';
-			}
-		}
-
-		function renderPayments(payments) {
-			const upcoming = payments
-				.filter(p => p.status !== 'Paid')
-				.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
-			const history = payments
-				.filter(p => p.status === 'Paid')
-				.sort((a,b) => new Date(b.paidDate || 0) - new Date(a.paidDate || 0));
-
-			const paymentCard = (p) => {
-				const isOverdue = p.status === 'Overdue';
-				const isOutstanding = p.status === 'Outstanding';
-				const cardColor = isOverdue ? 'bg-red-800/20 border-red-500/30' : isOutstanding ? 'bg-amber-800/20 border-amber-500/30' : 'bg-slate-700/50 border-slate-600';
-				const titleColor = isOverdue ? 'text-red-300' : 'text-slate-100';
-				const statusColor = isOverdue ? 'text-red-400' : isOutstanding ? 'text-amber-400' : 'text-green-400';
-				return `
-					<div class="p-4 rounded-lg border ${cardColor}">
-						<div class="flex justify-between items-center">
-							<div>
-								<p class="font-bold ${titleColor}">\${p.title}</p>
-								<p class="text-sm text-slate-400">\${p.vendor}</p>
-							</div>
-							<div class="text-right">
-								<p class="font-black text-lg text-slate-100">\${formatCurrency(p.amount)}</p>
-								<p class="text-sm font-bold ${statusColor}">\${p.status}</p>
-							</div>
-						</div>
-						<p class="text-xs text-slate-500 mt-2">Due: \${formatDate(p.dueDate)}</p>
-					</div>
-				`;
-			};
-
-			upcomingPaymentsContainer.innerHTML = upcoming.length ? upcoming.map(paymentCard).join('') : '<p class="text-sm text-slate-500">No upcoming payments.</p>';
-			paymentHistoryContainer.innerHTML = history.length ? history.map(paymentCard).join('') : '<p class="text-sm text-slate-500">No payment history.</p>';
-		}
-
-		async function fetchData() {
-			generateSummaryBtn.disabled = true;
+		// Data wiring to Netlify function
+		async function loadData() {
 			try {
-				const response = await fetch('/.netlify/functions/proxy');
-				if (!response.ok) throw new Error('Failed to fetch project data.');
-				projectData = await response.json();
-				renderKPIs(projectData.kpis);
-				renderGates(projectData);
-				renderPayments(projectData.payments);
-				statusContainer.style.display = 'none';
-				generateSummaryBtn.disabled = false;
+				const res = await fetch('/.netlify/functions/proxy');
+				if (!res.ok) throw new Error('Failed to fetch data');
+				const { milestones, deliverables, payments, kpis } = await res.json();
 
-				const observer = new IntersectionObserver((entries) => {
-					entries.forEach(entry => {
-						if (entry.isIntersecting) {
-							entry.target.classList.add('is-visible');
-							observer.unobserve(entry.target);
-						}
-					});
-				}, { threshold: 0.1 });
-				document.querySelectorAll('.fade-in-section').forEach(section => {
-					observer.observe(section);
+				document.getElementById('gaugePct').textContent = Math.round((kpis.deliverablesProgress||0)*100) + '%';
+				document.getElementById('totalA').textContent = (kpis.paidVsBudget*100).toFixed(1);
+				document.getElementById('totalB').textContent = kpis.overBudgetCount;
+				document.getElementById('alertTotal').textContent = milestones.filter(m=>m.riskStatus==='At Risk').length;
+				document.getElementById('totalMain').textContent = payments.filter(p=>p.status==='Paid').reduce((s,p)=>s+(p.amount||0),0).toLocaleString('en-US',{minimumFractionDigits:3, maximumFractionDigits:3});
+
+				document.getElementById('progA').style.width = Math.min(100, (kpis.paidVsBudget*100)).toFixed(0)+'%';
+				document.getElementById('progB').style.width = Math.min(100, (kpis.deliverablesProgress*100)).toFixed(0)+'%';
+
+				const byMonth = {};
+				payments.forEach(p=>{
+					const d = p.dueDate ? new Date(p.dueDate) : null;
+					if(!d) return;
+					const key = `${d.getFullYear()}-${(d.getMonth()+1+'').padStart(2,'0')}`;
+					byMonth[key] = (byMonth[key]||0) + (p.amount||0);
 				});
+				const labels = Object.keys(byMonth).sort();
+				areaChart.data.labels = labels;
+				areaChart.data.datasets[0].data = labels.map(k=>byMonth[k]);
+				areaChart.update();
 
-			} catch (error) {
-				console.error('Fetch Error:', error);
-				statusContainer.innerHTML = `
-					<div class="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-md">
-						<strong>Error:</strong> Failed to load project data. Please try again.
-					</div>
-				`;
+				const gateCounts = {};
+				deliverables.forEach(d=>{ gateCounts[d.gate||'Uncategorized'] = (gateCounts[d.gate||'Uncategorized']||0) + 1; });
+				const gates = Object.keys(gateCounts);
+				barChart.data.labels = gates;
+				barChart.data.datasets[0].data = gates.map(g=>gateCounts[g]);
+				barChart.data.datasets[0].backgroundColor = gates.map((g,i)=> i===gates.length-1 ? brand : navy);
+				barChart.update();
+
+				const approved = deliverables.filter(d=>d.status==='Approved').length;
+				const submitted = deliverables.filter(d=>d.status==='Submitted').length;
+				const missing = deliverables.length - approved - submitted;
+				doughnutChart.data.datasets[0].data = [approved, submitted, Math.max(0, missing)];
+				doughnutChart.update();
+
+			} catch (e) {
+				console.error(e);
 			}
 		}
 
-		document.getElementById('tab-nav').addEventListener('click', (e) => {
-			const btn = e.target.closest('button[role="tab"]');
-			if (!btn) return;
-			const tabName = btn.dataset.tab;
-
-			document.querySelectorAll('#tab-nav .tab-btn').forEach(b => {
-				b.classList.remove('active');
-				b.setAttribute('aria-selected', String(b === btn));
-			});
-			btn.classList.add('active');
-
-			document.querySelectorAll('#tab-content-container .tab-content').forEach(content => content.classList.remove('active'));
-			const panel = document.getElementById(`${tabName}-content`);
-			if (panel) panel.classList.add('active');
-		});
-
-		gatesSection.addEventListener('click', (e) => {
-			if (e.target.classList.contains('submit-deliverable-btn')) {
-				window.open(NOTION_UPLOAD_URL, '_blank');
-			}
-		});
-		uncategorizedSection.addEventListener('click', (e) => {
-			if (e.target.tagName === 'A') {
-				window.open(e.target.href, '_blank');
-			}
-		});
-
-		document.addEventListener('DOMContentLoaded', fetchData);
-
-		function openModal(modal) {
-			modal.classList.remove('opacity-0', 'pointer-events-none');
-			modal.querySelector('.modal-container').classList.remove('scale-95');
-		}
-		function closeModal(modal) {
-			modal.classList.add('opacity-0', 'pointer-events-none');
-			modal.querySelector('.modal-container').classList.add('scale-95');
-		}
-
-		document.querySelectorAll('.close-modal-btn').forEach(btn => {
-			btn.addEventListener('click', () => closeModal(geminiModal));
-		});
-		geminiModal.addEventListener('click', (e) => {
-			if (e.target === geminiModal) closeModal(geminiModal);
-		});
-
-		async function callGeminiAPI(type, data) {
-			const modalTitle = document.getElementById('gemini-modal-title');
-			const modalContent = document.getElementById('gemini-modal-content');
-			modalTitle.textContent = type === 'summary' ? '✨ Project Summary' : '✨ AI Suggestions';
-			modalContent.innerHTML = `<div class="flex justify-center items-center p-8"><div class="spinner w-10 h-10"></div></div>`;
-			openModal(geminiModal);
-			try {
-				const response = await fetch('/.netlify/functions/proxy', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ type, data })
+		document.getElementById('genSummary').addEventListener('click', async ()=>{
+			try{
+				const res = await fetch('/.netlify/functions/proxy');
+				const data = await res.json();
+				const resp = await fetch('/.netlify/functions/proxy', {
+					method:'POST',
+					headers:{'Content-Type':'application/json'},
+					body: JSON.stringify({ type:'summary', data })
 				});
-				if (!response.ok) { throw new Error('Request failed.'); }
-				const result = await response.json();
-				modalContent.innerHTML = (result.text || '').replace(/\n/g, '<br>');
-			} catch (error) {
-				console.error('Gemini API Error:', error);
-				modalContent.innerHTML = `
-					<div class="bg-red-500/20 text-red-400 p-4 rounded-md">
-						<p><strong>Error:</strong> Could not get a response from the AI assistant.</p>
-						<p class="mt-2 text-sm">Please try again.</p>
-					</div>
-				`;
+				const out = await resp.json();
+				document.getElementById('summaryOut').textContent = out.text || 'No response.';
+			}catch(e){
+				document.getElementById('summaryOut').textContent = 'Error generating summary.';
 			}
-		}
-		generateSummaryBtn.addEventListener('click', () => { if (projectData) { callGeminiAPI('summary', projectData); } });
+		});
+
+		loadData();
 	</script>
 </body>
-</html>

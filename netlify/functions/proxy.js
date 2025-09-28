@@ -1,6 +1,3 @@
-// Netlify/AWS Lambda handler for your Renovation Project Hub
-// Pulls live data from Notion, computes KPIs, and proxies Gemini for summaries.
-
 const {
   GEMINI_API_KEY,
   NOTION_API_KEY,
@@ -10,35 +7,27 @@ const {
   CONFIG_DB_ID,
 } = process.env;
 
-const NOTION_API_BASE = 'https://api.notion.com/v1';
-const NOTION_VERSION = '2022-06-28'; // use your workspace’s pinned version if different
+const NOTION_VERSION = '2022-06-28';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-
-// -----------------------------
-// Helpers
-// -----------------------------
 
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
-  const res = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }]}] }),
   });
   if (!res.ok) throw new Error(`Gemini API responded with status: ${res.status}`);
   const data = await res.json();
-
-  // Defensive parsing since the API structure can change
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) {
+async function queryNotionDB(databaseId, filter, sorts) {
   const body = {};
   if (filter && Object.keys(filter).length > 0) body.filter = filter;
   if (sorts && sorts.length > 0) body.sorts = sorts;
 
-  const res = await fetch(`${NOTION_API_BASE}/databases/${databaseId}/query`, {
+  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${NOTION_API_KEY}`,
@@ -47,7 +36,6 @@ async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) 
     },
     body: JSON.stringify(body),
   });
-
   if (!res.ok) {
     let errorBody = {};
     try { errorBody = await res.json(); } catch {}
@@ -56,10 +44,6 @@ async function queryNotionDB(databaseId, filter = undefined, sorts = undefined) 
   }
   return res.json();
 }
-
-// -----------------------------
-// Handler
-// -----------------------------
 
 exports.handler = async (event) => {
   const headers = {
@@ -72,42 +56,23 @@ exports.handler = async (event) => {
   try {
     if (event.httpMethod === 'POST') {
       let type, data;
-      try {
-        ({ type, data } = JSON.parse(event.body || '{}'));
-      } catch {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
-      }
+      try { ({ type, data } = JSON.parse(event.body || '{}')); }
+      catch { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
 
       let prompt = '';
       if (type === 'summary') {
-        const kpiText = `Paid vs Budget: ${(data.kpis.paidVsBudget * 100).toFixed(1)}%, Deliverables: ${(data.kpis.deliverablesProgress * 100).toFixed(0)}% approved, Over Budget Items: ${data.kpis.overBudgetCount}, Milestones At Risk: ${data.kpis.milestonesAtRisk}.`;
-        const milestonesText = (data.milestones || [])
-          .map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`)
-          .join('\n');
-
-        prompt =
-`Act as a project manager for a high-end home renovation. Based on the following live data, write a concise, professional weekly summary for the project stakeholders. Be encouraging but realistic, highlighting both successes and areas needing attention.
-
-Key Metrics:
-${kpiText}
-
-Key Milestones:
-${milestonesText}`;
+        const k = data.kpis || {};
+        const kpiText = `Paid vs Budget: ${((k.paidVsBudget||0)*100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress||0)*100).toFixed(0)}% approved, Over Budget Items: ${k.overBudgetCount||0}, Milestones At Risk: ${k.milestonesAtRisk||0}.`;
+        const milestonesText = (data.milestones||[]).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
+        prompt = `Act as a project manager for a high-end home renovation. Based on the following live data, write a concise, professional weekly summary.\n\nKey Metrics:\n${kpiText}\n\nKey Milestones:\n${milestonesText}`;
       } else if (type === 'suggestion') {
-        prompt =
-`Act as a senior construction project manager. A project milestone is flagged as "At Risk". Provide 3 actionable, concise suggestions to help resolve the issue based on the provided context.
-
-Milestone: "${data.title}"
-Financial Status: ${data.indicator}
-Described Issue: "${data.gateIssue}"`;
-      }
-
-      if (!prompt) {
+        prompt = `Act as a senior construction PM. A project milestone is "At Risk". Provide 3 concise, actionable suggestions.\n\nMilestone: "${data.title}"\nFinancial Status: ${data.indicator}\nDescribed Issue: "${data.gateIssue}"`;
+      } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
       }
 
-      const geminiResponse = await callGemini(prompt);
-      return { statusCode: 200, headers, body: JSON.stringify({ text: geminiResponse }) };
+      const text = await callGemini(prompt);
+      return { statusCode: 200, headers, body: JSON.stringify({ text }) };
     }
 
     if (event.httpMethod === 'GET') {
@@ -122,7 +87,7 @@ Described Issue: "${data.gateIssue}"`;
         queryNotionDB(CONFIG_DB_ID),
       ]);
 
-      const milestones = (milestonesData.results || []).map(p => ({
+      const milestones = (milestonesData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.MilestoneTitle?.title?.[0]?.plain_text ?? 'Untitled',
         riskStatus: p.properties?.Risk?.status?.name ?? 'OK',
@@ -132,14 +97,14 @@ Described Issue: "${data.gateIssue}"`;
         paidVsBudget: p.properties?.['Paid vs Budget (%)']?.formula?.number ?? 0,
       }));
 
-      const deliverables = (deliverablesData.results || []).map(p => ({
+      const deliverables = (deliverablesData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
         gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
         status: p.properties?.Status?.select?.name ?? 'Missing',
       }));
 
-      const payments = (paymentsData.results || []).map(p => ({
+      const payments = (paymentsData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.['Payment For']?.title?.[0]?.plain_text ?? 'Untitled',
         vendor: p.properties?.Vendor?.rich_text?.[0]?.plain_text ?? 'N/A',
@@ -149,26 +114,23 @@ Described Issue: "${data.gateIssue}"`;
         paidDate: p.properties?.PaidDate?.date?.start ?? null,
       }));
 
-      const config = (configData.results || []).reduce((acc, p) => {
+      const config = (configData.results||[]).reduce((acc, p) => {
         const key = p.properties?.Key?.title?.[0]?.plain_text;
         const value = p.properties?.Value?.rich_text?.[0]?.plain_text;
         if (key) acc[key] = value;
         return acc;
       }, {});
 
-      // KPI calculations
-      const totalBudget = (milestonesData.results || []).reduce(
-        (sum, p) => sum + (p.properties?.['Budget (RM)']?.number ?? 0), 0
-      );
-      const totalPaidSpent = payments.filter(p => p.status === 'Paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-      const overBudgetCount = milestones.filter(m => (m.indicator || '').toLowerCase().includes('over budget')).length;
+      const totalBudget = (milestonesData.results||[]).reduce((sum, p) => sum + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
+      const totalPaidSpent = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount||0), 0);
+      const overBudgetCount = milestones.filter(m => (m.indicator||'').toLowerCase().includes('over budget')).length;
       const deliverablesApproved = deliverables.filter(d => d.status === 'Approved').length;
 
       const launchRaw = config['Project Launch Date'];
       const launchDate = launchRaw ? new Date(launchRaw) : null;
       let daysToLaunchVal = 'TBD';
       if (launchDate && !Number.isNaN(+launchDate)) {
-        const d = Math.ceil((launchDate - new Date()) / (1000 * 60 * 60 * 24));
+        const d = Math.ceil((launchDate - new Date()) / (1000*60*60*24));
         daysToLaunchVal = d >= 0 ? d : 'Launched';
       }
 
@@ -180,11 +142,7 @@ Described Issue: "${data.gateIssue}"`;
         milestonesAtRisk: milestones.filter(m => m.riskStatus === 'At Risk').length,
       };
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ milestones, deliverables, payments, kpis, config }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ milestones, deliverables, payments, kpis, config }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
