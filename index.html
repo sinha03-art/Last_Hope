@@ -1,308 +1,260 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Project Dashboard</title>
+/**
+ * Renovation Project Hub proxy
+ * KPIs, alerts, cashflow, per-gate aggregates, Top Vendors, row URLs, Owner assignees + summary POST.
+ */
+const {
+  GEMINI_API_KEY,
+  NOTION_API_KEY,
+  MILESTONES_DB_ID,
+  DELIVERABLES_DB_ID,
+  PAYMENTS_DB_ID,
+  CONFIG_DB_ID,
+} = process.env;
 
-	<link rel="preconnect" href="https://fonts.googleapis.com/">
-	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
-	<script src="https://cdn.tailwindcss.com/"></script>
+const NOTION_VERSION = '2022-06-28';
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
-	<!-- Chart.js (UMD) -->
-	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+// URL builders (plain HTTPS)
+const NOTION_DB_QUERY_URL = (dbId) => `https://api.notion.com/v1/databases/${dbId}/query`;
+const GEMINI_URL = (model, key) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
 
-	<style>
-	:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
-	.dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
-	html,body{height:100%}
-	body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--ink);}
-	.nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
-	.pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
-	.hr{height:1px; background: #e5e7eb;}
-	.top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
-	.kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
-	.card{background:var(--panel)}
-	/* Make the chart area flexible */
-	#cashflowBox { height: 220px; }
-	</style>
-</head>
-<body>
-	<div class="min-h-screen grid grid-cols-[260px_1fr]">
-		<aside class="bg-[var(--nav)] text-[var(--nav-ink)]">
-			<div class="p-6 flex items-center gap-3">
-				<div class="w-9 h-9 rounded bg-white/10 grid place-items-center"><div class="w-5 h-5 rotate-45 bg-[var(--brand)]"></div></div>
-				<div class="leading-tight">
-					<p class="font-black tracking-wide">JOOBIN</p>
-					<p class="text-[10px] opacity-70">Assets</p>
-				</div>
-			</div>
+// Helpers
+function ymKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
-			<nav class="mt-6 text-sm">
-				<div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
-				<ul>
-					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Dosier</span></a></li>
-					<li class="nav-sep">
-						<a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="/deliverables.html">
-							<span>Gate Deliverables</span>
-							<span class="pill">New</span>
-						</a>
-					</li>
-					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Project Stage</span></a></li>
-					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Media</span><span class="pill">New</span></a></li>
-					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Tasks</span></a></li>
-					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Forms</span></a></li>
-				</ul>
-			</nav>
-		</aside>
+async function callGemini(prompt) {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
+  const res = await fetch(GEMINI_URL(GEMINI_MODEL, GEMINI_API_KEY), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(()=> '');
+    throw new Error(`Gemini ${res.status}: ${text.slice(0,300)}`);
+  }
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+}
 
-		<div class="flex flex-col">
-			<header class="card top-shadow">
-				<div class="h-14 flex items-center justify-between px-6">
-					<p class="font-black tracking-wide">Dashboard</p>
-					<div class="flex items-center gap-3">
-						<button id="themeToggle" class="text-xs px-3 py-1 rounded border border-slate-300/50 hover:bg-slate-50 dark:hover:bg-slate-800">Dark</button>
-						<div class="text-xs opacity-70">JOOBIN</div>
-					</div>
-				</div>
-			</header>
+async function queryNotionDB(databaseId, filter, sorts) {
+  const body = {};
+  if (filter && Object.keys(filter).length > 0) body.filter = filter;
+  if (sorts && sorts.length > 0) body.sorts = sorts;
 
-			<main class="p-6 space-y-6">
-				<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-					<div class="kpi">
-						<p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p>
-						<p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p>
-						<!-- Optional doughnut: <canvas id="kpiPaidChart" height="80" style="width:100%;"></canvas> -->
-					</div>
+  const res = await fetch(NOTION_DB_QUERY_URL(databaseId), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Notion-Version': NOTION_VERSION,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(()=> '');
+    console.error(`Notion error for DB ${databaseId}: ${res.status} ${text}`);
+    throw new Error(`Notion ${res.status}`);
+  }
+  return res.json();
+}
 
-					<div class="kpi">
-						<p class="text-xs uppercase text-[var(--muted)]">Deliverables Approved</p>
-						<p id="kpiDeliverables" class="text-3xl font-black">0%</p>
-					</div>
+exports.handler = async (event) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers };
 
-					<div class="kpi">
-						<p class="text-xs uppercase text-[var(--muted)]">Milestones At Risk</p>
-						<p id="kpiRisk" class="text-3xl font-black">0</p>
-						<!-- Optional sparkline: <canvas id="riskSpark" height="40" style="width:100%;"></canvas> -->
-					</div>
+  try {
+    if (event.httpMethod === 'POST') {
+      let type, data;
+      try { ({ type, data } = JSON.parse(event.body || '{}')); }
+      catch {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+      }
+      if (type !== 'summary' && type !== 'suggestion') {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
+      }
 
-					<div class="kpi">
-						<p class="text-xs uppercase text-[var(--muted)]">Next 30d Due</p>
-						<p id="kpiNext30" class="text-3xl font-black">RM 0</p>
-						<p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p>
-					</div>
-				</section>
+      let prompt = '';
+      if (type === 'summary') {
+        const k = data.kpis || {};
+        const kpiText = `Paid vs Budget: ${((k.paidVsBudget||0)*100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress||0)*100).toFixed(0)}% approved, Milestones At Risk: ${k.milestonesAtRisk||0}, Next 30d Due: RM ${(k.next30?.amount||0).toLocaleString('en-MY')} (${k.next30?.count||0} items).`;
+        const milestonesText = (data.milestones||[]).slice(0,10).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
+        prompt = `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.  Key Metrics: ${kpiText}  Key Milestones: ${milestonesText}`;
+      } else {
+        prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.  Milestone: "${data.title}" Financial: ${data.indicator} Issue: "${data.gateIssue}"`;
+      }
 
-				<section class="grid grid-cols-12 gap-6">
-					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide mb-3">Attention Board</h3>
-						<div class="grid md:grid-cols-2 gap-4">
-							<div>
-								<p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue Payments</p>
-								<ul id="overdueList" class="space-y-2 text-sm"></ul>
-							</div>
-							<div>
-								<p class="text-xs uppercase text-[var(--muted)] mb-2">Upcoming (30d)</p>
-								<ul id="upcomingList" class="space-y-2 text-sm"></ul>
-							</div>
-						</div>
-						<div class="hr my-5"></div>
-						<div class="grid md:grid-cols-2 gap-4">
-							<div>
-								<p class="text-xs uppercase text-[var(--muted)] mb-2">Deliverable Issues</p>
-								<ul id="deliverableIssues" class="space-y-2 text-sm"></ul>
-							</div>
-							<div>
-								<p class="text-xs uppercase text-[var(--muted)] mb-2">Milestones At Risk</p>
-								<ul id="milestonesRisk" class="space-y-2 text-sm"></ul>
-							</div>
-						</div>
-					</div>
+      const text = await callGemini(prompt);
+      return { statusCode: 200, headers, body: JSON.stringify({ text }) };
+    }
 
-					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide mb-3">Cashflow (Scheduled vs Paid)</h3>
-						<div id="cashflowBox" class="relative">
-							<canvas id="cashflowChart" height="220" style="width:100%;"></canvas>
-						</div>
-					</div>
-				</section>
+    if (event.httpMethod === 'GET') {
+      const missing = ['MILESTONES_DB_ID','DELIVERABLES_DB_ID','PAYMENTS_DB_ID','CONFIG_DB_ID','NOTION_API_KEY']
+        .filter(k => !process.env[k]);
+      if (missing.length) {
+        return { statusCode: 500, headers, body: JSON.stringify({ error: 'Missing environment variables', details: missing }) };
+      }
 
-				<section class="grid grid-cols-12 gap-6">
-					<div class="col-span-12 xl:col-span-8 card rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide mb-3">Gate Progress</h3>
-						<div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-					</div>
-					<div class="col-span-12 xl:col-span-4 card rounded border border-slate-200 p-6">
-						<h3 class="font-black tracking-wide mb-3">Top Vendors Outstanding</h3>
-						<ul id="topVendors" class="space-y-2 text-sm"></ul>
-					</div>
-				</section>
+      const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
+        queryNotionDB(MILESTONES_DB_ID, undefined, [{ property: 'StartDate', direction: 'ascending' }]),
+        queryNotionDB(DELIVERABLES_DB_ID),
+        queryNotionDB(PAYMENTS_DB_ID),
+        queryNotionDB(CONFIG_DB_ID),
+      ]);
 
-				<section class="card rounded border border-slate-200 p-6">
-					<div class="flex items-center justify-between">
-						<h3 class="font-black tracking-wide">Weekly AI Summary</h3>
-						<button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
-					</div>
-					<div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
-				</section>
+      const milestones = (milestonesData.results||[]).map(p => ({
+        id: p.id,
+        title: p.properties?.MilestoneTitle?.title?.[0]?.plain_text ?? 'Untitled',
+        riskStatus: p.properties?.Risk?.status?.name ?? 'OK',
+        phase: p.properties?.Phase?.select?.name ?? 'Uncategorized',
+        progress: p.properties?.Progress?.number ?? 0,
+        indicator: p.properties?.Indicator?.formula?.string ?? '🟢 OK',
+        url: p.url,
+      }));
 
-				<!-- Status line for fetch errors -->
-				<div id="status" class="px-1 text-xs text-rose-600"></div>
-			</main>
-		</div>
-	</div>
+      const deliverables = (deliverablesData.results||[]).map(p => ({
+        id: p.id,
+        title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
+        gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
+        status: p.properties?.Status?.select?.name ?? 'Missing',
+        assignees: (p.properties?.Owner?.people || []).map(x => x?.name || x?.id),
+        url: p.url,
+      }));
 
-	<script>
-	// THEME
-	const btn = document.getElementById('themeToggle');
-	function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
-	applyTheme(localStorage.getItem('theme') || 'light');
-	btn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
+      // Prefer a structured vendor; fallback to rich_text; normalize for grouping
+      function getVendorName(page) {
+        const props = page.properties || {};
+        const sel = props?.Vendor?.select?.name;
+        const rel = props?.Vendor?.relation?.[0]?.name;
+        const txt = props?.Vendor?.rich_text?.[0]?.plain_text;
+        return (sel || rel || txt || 'Unknown').trim();
+      }
 
-	// HELPERS
-	const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
-	const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
+      const payments = (paymentsData.results||[]).map(p => ({
+        id: p.id,
+        title: p.properties?.['Payment For']?.title?.[0]?.plain_text ?? 'Untitled',
+        vendor: getVendorName(p),
+        amount: p.properties?.['Amount (RM)']?.number ?? 0,
+        status: p.properties?.Status?.select?.name ?? 'Outstanding',
+        dueDate: p.properties?.DueDate?.date?.start ?? null,
+        paidDate: p.properties?.PaidDate?.date?.start ?? null,
+        url: p.url,
+      }));
 
-	let dataCache = null;
+      const config = (configData.results||[]).reduce((acc, p) => {
+        const key = p.properties?.Key?.title?.[0]?.plain_text;
+        const value = p.properties?.Value?.rich_text?.[0]?.plain_text;
+        if (key) acc[key] = value;
+        return acc;
+      }, {});
 
-	// RENDERERS
-	function renderKPIs(k){
-		document.getElementById('kpiPaidVsBudget').textContent = (((k.paidVsBudget||0)*100).toFixed(1))+'%';
-		document.getElementById('kpiDeliverables').textContent = (((k.deliverablesProgress||0)*100).toFixed(0))+'%';
-		document.getElementById('kpiRisk').textContent = k.milestonesAtRisk||0;
-		document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
-		document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
-	}
+      // KPIs
+      const totalBudget = (milestonesData.results||[]).reduce((s, p) => s + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
+      const totalPaid = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount||0), 0);
 
-	function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
+      // Next 30 days
+      const now = new Date();
+      const in30 = new Date(now.getTime() + 30*24*60*60*1000);
+      const next30Items = payments.filter(p => {
+        if (p.status === 'Paid') return false;
+        const d = p.dueDate ? new Date(p.dueDate) : null;
+        return d && d >= now && d <= in30;
+      });
+      const next30 = { amount: next30Items.reduce((s,p)=>s+(p.amount||0),0), count: next30Items.length, items: next30Items.slice(0,50) };
 
-	function renderAlerts(a){
-		const overdue = document.getElementById('overdueList'); overdue.innerHTML='';
-		(a.paymentsOverdue||[]).slice(0,8).forEach(p=>{
-			overdue.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
-		});
-		const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
-		(a.paymentsUpcoming||[]).slice(0,8).forEach(p=>{
-			upcoming.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-amber-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
-		});
-		const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
-		(a.deliverablesIssues||[]).slice(0,8).forEach(d=>{
-			deliv.appendChild(li(`<a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a><span class="text-xs font-bold ${d.status==='Rejected'?'text-rose-600':'text-slate-600'}">${d.status}</span>`));
-		});
-		const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
-		(a.milestonesRisk||[]).slice(0,8).forEach(m=>{
-			risk.appendChild(li(`<a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a><span class="text-xs font-bold text-rose-600">${m.riskStatus}</span>`));
-		});
-	}
+      // Alerts
+      const overdue = payments
+        .filter(p=>{
+          if (p.status === 'Paid') return false;
+          const d = p.dueDate ? new Date(p.dueDate) : null;
+          return d && d < now;
+        })
+        .sort((a,b)=> new Date(a.dueDate)-new Date(b.dueDate));
 
-	let cashflowChart;
-	function renderCashflow(cf) {
-		const el = document.getElementById('cashflowChart');
-		if (!el) return;
+      const upcoming = payments
+        .filter(p=>{
+          if (p.status === 'Paid') return false;
+          const d = p.dueDate ? new Date(p.dueDate) : null;
+          return d && d >= now && d <= in30;
+        })
+        .sort((a,b)=> new Date(a.dueDate)-new Date(b.dueDate));
 
-		const data = Array.isArray(cf) ? cf.slice() : [];
-		if (cashflowChart) { try { cashflowChart.destroy(); } catch(e){} cashflowChart = null; }
-		if (data.length === 0) {
-			const ctx = el.getContext('2d');
-			if (ctx) ctx.clearRect(0, 0, el.width, el.height);
-			return;
-		}
+      const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
+      const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
 
-		const labels = data.map(r => r.ym);
-		const scheduled = data.map(r => r.scheduled || 0);
-		const paid = data.map(r => r.paid || 0);
+      // Cashflow aggregation (scheduled vs paid by month) kept for forecast
+      const cashAgg = {};
+      payments.forEach(p=>{
+        const due = p.dueDate ? new Date(p.dueDate) : null;
+        if (due){
+          const k = ymKey(due);
+          cashAgg[k] = cashAgg[k] || { ym:k, scheduled:0, paid:0 };
+          cashAgg[k].scheduled += (p.amount||0);
+        }
+        const paid = p.paidDate ? new Date(p.paidDate) : null;
+        if (paid){
+          const k2 = ymKey(paid);
+          cashAgg[k2] = cashAgg[k2] || { ym:k2, scheduled:0, paid:0 };
+          cashAgg[k2].paid += (p.amount||0);
+        }
+      });
+      const cashflow = Object.values(cashAgg).sort((a,b)=> a.ym.localeCompare(b.ym));
 
-		cashflowChart = new Chart(el.getContext('2d'), {
-			type: 'bar',
-			data: {
-				labels,
-				datasets: [
-					{ label: 'Scheduled', data: scheduled, backgroundColor: '#0f2133', borderRadius: 6 },
-					{ label: 'Paid', data: paid, backgroundColor: '#e11d48', borderRadius: 6 }
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: { legend: { position: 'bottom' } },
-				scales: {
-					x: { grid: { display: false } },
-					y: { beginAtZero: true, grid: { color: '#e5e7eb' } }
-				}
-			}
-		});
-	}
+      // Gate aggregates
+      const gatesIndex = {};
+      deliverables.forEach(d=>{
+        const g = d.gate || 'Uncategorized';
+        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
+        gatesIndex[g].required += 1;
+        if (d.status === 'Approved') gatesIndex[g].approved += 1;
+        if (d.status === 'Rejected' || d.status === 'Missing') gatesIndex[g].blocked += 1;
+      });
+      milestones.forEach(m=>{
+        if (!m.phase) return;
+        const g = m.phase;
+        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
+        if (m.progress >= 1 || String(m.indicator).toLowerCase().includes('complete')) {
+          gatesIndex[g].milestonesComplete += 1;
+        }
+      });
+      const gates = Object.values(gatesIndex);
 
-	function renderTopVendors(list){
-		const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML = '';
-		(list||[]).forEach(r => ul.insertAdjacentHTML('beforeend',
-			`<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
-	}
+      // Top vendors outstanding (normalize vendor key)
+      const vendorOutstanding = {};
+      payments.forEach(p=>{
+        if (p.status !== 'Paid') {
+          const key = (p.vendor || 'Unknown').replace(/\s+/g,' ').trim().toUpperCase();
+          vendorOutstanding[key] = (vendorOutstanding[key] || 0) + (p.amount || 0);
+        }
+      });
+      // Keep original display formatting as uppercase key; can map back if you store display names separately
+      const topVendors = Object.entries(vendorOutstanding)
+        .map(([vendor, amount]) => ({ vendor, amount }))
+        .sort((a,b)=> b.amount - a.amount)
+        .slice(0, 5);
 
-	function renderGates(gates){
-		const wrap = document.getElementById('gatesWrap'); wrap.innerHTML='';
-		(gates||[]).forEach(g=>{
-			const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
-			const card = document.createElement('div');
-			card.className='rounded border border-slate-200 p-4';
-			card.innerHTML = `
-				<div class="flex items-center justify-between">
-					<p class="font-bold">${g.id}</p>
-					<span class="text-xs ${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">${g.blocked>0?'Blocked':'Clear'}</span>
-				</div>
-				<div class="mt-3">
-					<div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
-						<div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
-					</div>
-					<p class="mt-2 text-xs text-[var(--muted)]">Approved ${g.approved} / ${g.required} • Milestones complete ${g.milestonesComplete}</p>
-				</div>`;
-			wrap.appendChild(card);
-		});
-	}
+      const kpis = {
+        paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
+        deliverablesProgress:
+          deliverables.length > 0
+            ? deliverables.filter(d=>d.status==='Approved').length / deliverables.length
+            : 0,
+        milestonesAtRisk: milestonesRisk.length,
+        next30,
+      };
 
-	// LOAD DATA
-	const statusEl = document.getElementById('status');
+      const alerts = { paymentsOverdue: overdue, paymentsUpcoming: upcoming, deliverablesIssues, milestonesRisk };
 
-	async function autoSummary(){
-		if (!dataCache) return;
-		try {
-			const resp = await fetch('/.netlify/functions/proxy', {
-				method:'POST',
-				headers:{'Content-Type':'application/json'},
-				body: JSON.stringify({ type:'summary', data: dataCache })
-			});
-			const out = await resp.json().catch(()=>({}));
-			document.getElementById('summaryOut').textContent = out.text || 'No response.';
-		} catch (err) {
-			document.getElementById('summaryOut').textContent = 'AI summary unavailable.';
-		}
-	}
+      return { statusCode: 200, headers, body: JSON.stringify({ milestones, deliverables, payments, kpis, alerts, cashflow, gates, topVendors, config }) };
+    }
 
-	async function loadData(){
-		statusEl.textContent = 'Loading…';
-		try {
-			const r = await fetch('/.netlify/functions/proxy', { headers:{'Accept':'application/json'} });
-			if (!r.ok) throw new Error(`HTTP ${r.status}`);
-			dataCache = await r.json();
-
-			renderKPIs(dataCache.kpis || {});
-			renderAlerts(dataCache.alerts || { paymentsOverdue: [], paymentsUpcoming: [], deliverablesIssues: [], milestonesRisk: [] });
-			renderCashflow(dataCache.cashflow || []);
-			renderGates(dataCache.gates || []);
-			renderTopVendors(dataCache.topVendors || []);
-
-			statusEl.textContent = '';
-		} catch (err) {
-			statusEl.textContent = `Failed to load data: ${err.message}`;
-			console.error(err);
-		}
-	}
-
-	document.getElementById('genSummary').addEventListener('click', autoSummary);
-
-	// Boot
-	loadData().then(autoSummary).catch(err=>console.error(err));
-	</script>
-</body>
-</html>
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  } catch (error) {
+    console.error('Server Error:', error);
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
+  }
+};
