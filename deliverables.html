@@ -1,188 +1,236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-	<title>Gate Deliverables — Board</title>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Project Dashboard</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
 	<script src="https://cdn.tailwindcss.com"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 	<style>
-		:root{ --bg:#f6f8fa; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; }
+		:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
+		.dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
 		html,body{height:100%}
 		body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--ink);}
-		.card{ background:var(--panel); border:1px solid #e5e7eb; border-radius:.75rem; }
-		.col{ background:var(--panel); border:1px dashed #e5e7eb; border-radius:.75rem; min-height: 180px; }
-		.badge{ font-size:.7rem; padding:.15rem .45rem; border-radius:999px; font-weight:700 }
-		.badge-Approved{ background:#d1fae5; color:#065f46 }
-		.badge-Submitted{ background:#fef3c7; color:#92400e }
-		.badge-Missing{ background:#e5e7eb; color:#374151 }
-		.badge-Rejected{ background:#fee2e2; color:#991b1b }
-		.card-item{ border:1px solid #e5e7eb; border-radius:.5rem; padding:.6rem .7rem; background:#fff; transition: box-shadow .15s ease }
-		.card-item:hover{ box-shadow: 0 6px 14px rgba(0,0,0,.06) }
-		.header-actions a{ text-decoration: underline; text-underline-offset: 2px; }
-		.sticky-header{ position: sticky; top: 0; background: var(--bg); z-index: 10; padding-top: 0.5rem; padding-bottom: 0.5rem; }
-		#ownerChips button.active{ background:#0f1723; color:#fff; border-color:#0f1723 }
+		.nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
+		.pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
+		.hr{height:1px; background: #e5e7eb;}
+		.top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
+		.kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
+		.card{background:var(--panel)}
 	</style>
 </head>
-<body class="p-4 md:p-6">
-	<header class="sticky-header">
-		<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-			<h1 class="text-2xl font-black">Gate Deliverables — Board</h1>
-			<div class="header-actions flex flex-wrap items-center gap-3">
-				<input id="q" class="px-3 py-2 rounded border border-slate-300 text-sm" placeholder="Search title or assignee">
-				<select id="gateFilter" class="px-3 py-2 rounded border border-slate-300 text-sm">
-					<option value="">All gates</option>
-				</select>
-				<div class="flex gap-2" id="ownerChips">
-					<button class="px-3 py-1 text-xs rounded border hover:bg-slate-50" data-owner="solomon">Solomon</button>
-					<button class="px-3 py-1 text-xs rounded border hover:bg-slate-50" data-owner="harminder">Harminder</button>
-					<button class="px-3 py-1 text-xs rounded border hover:bg-slate-50" data-owner="">Both</button>
+<body>
+	<div class="min-h-screen grid grid-cols-[260px_1fr]">
+		<aside class="bg-[var(--nav)] text-[var(--nav-ink)]">
+			<div class="p-6 flex items-center gap-3">
+				<div class="w-9 h-9 rounded bg-white/10 grid place-items-center"><div class="w-5 h-5 rotate-45 bg-[var(--brand)]"></div></div>
+				<div class="leading-tight">
+					<p class="font-black tracking-wide">JOOBIN</p>
+					<p class="text-[10px] opacity-70">Assets</p>
 				</div>
-				<a href="" target="_blank" class="px-3 py-2 rounded bg-rose-600 text-white text-sm font-bold hover:bg-rose-700">Upload</a>
 			</div>
-		</div>
-	</header>
+			<nav class="mt-6 text-sm">
+				<div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
+				<ul>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Dosier</span></a></li>
+					<li class="nav-sep">
+						<a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="deliverables.html">
+							<span>Gate Deliverables</span>
+							<span class="pill">New</span>
+						</a>
+					</li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Project Stage</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Media</span><span class="pill">New</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Tasks</span></a></li>
+					<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Forms</span></a></li>
+				</ul>
+			</nav>
+		</aside>
 
-	<main id="root" class="mt-4 space-y-8"></main>
+		<div class="flex flex-col">
+			<header class="card top-shadow">
+				<div class="h-14 flex items-center justify-between px-6">
+					<p class="font-black tracking-wide">Dashboard</p>
+					<div class="flex items-center gap-3">
+						<button id="themeToggle" class="text-xs px-3 py-1 rounded border border-slate-300/50 hover:bg-slate-50 dark:hover:bg-slate-800">Dark</button>
+						<div class="text-xs opacity-70">JOOBIN</div>
+					</div>
+				</div>
+			</header>
+
+			<main class="p-6 space-y-6">
+				<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p><p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p></div>
+					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Deliverables Approved</p><p id="kpiDeliverables" class="text-3xl font-black">0%</p></div>
+					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Milestones At Risk</p><p id="kpiRisk" class="text-3xl font-black">0</p></div>
+					<div class="kpi"><p class="text-xs uppercase text-[var(--muted)]">Next 30d Due</p><p id="kpiNext30" class="text-3xl font-black">RM 0</p><p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p></div>
+				</section>
+
+				<section class="grid grid-cols-12 gap-6">
+					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Attention Board</h3>
+						<div class="grid md:grid-cols-2 gap-4">
+							<div>
+								<p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue Payments</p>
+								<ul id="overdueList" class="space-y-2 text-sm"></ul>
+							</div>
+							<div>
+								<p class="text-xs uppercase text-[var(--muted)] mb-2">Upcoming (30d)</p>
+								<ul id="upcomingList" class="space-y-2 text-sm"></ul>
+							</div>
+						</div>
+						<div class="hr my-5"></div>
+						<div class="grid md:grid-cols-2 gap-4">
+							<div>
+								<p class="text-xs uppercase text-[var(--muted)] mb-2">Deliverable Issues</p>
+								<ul id="deliverableIssues" class="space-y-2 text-sm"></ul>
+							</div>
+							<div>
+								<p class="text-xs uppercase text-[var(--muted)] mb-2">Milestones At Risk</p>
+								<ul id="milestonesRisk" class="space-y-2 text-sm"></ul>
+							</div>
+						</div>
+					</div>
+
+					<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Cashflow (Scheduled vs Paid)</h3>
+						<canvas id="cashflowChart" height="120"></canvas>
+					</div>
+				</section>
+
+				<section class="grid grid-cols-12 gap-6">
+					<div class="col-span-12 xl:col-span-8 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Gate Progress</h3>
+						<div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+					</div>
+					<div class="col-span-12 xl:col-span-4 card rounded border border-slate-200 p-6">
+						<h3 class="font-black tracking-wide mb-3">Top Vendors Outstanding</h3>
+						<ul id="topVendors" class="space-y-2 text-sm"></ul>
+					</div>
+				</section>
+
+				<section class="card rounded border border-slate-200 p-6">
+					<div class="flex items-center justify-between">
+						<h3 class="font-black tracking-wide">Weekly AI Summary</h3>
+						<button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
+					</div>
+					<div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
+				</section>
+			</main>
+		</div>
+	</div>
 
 	<script>
-		const STATUS_ORDER = ['Missing','Submitted','Rejected','Approved'];
-		const STATUS_TITLES = { Missing:'Missing', Submitted:'Submitted', Rejected:'Rejected', Approved:'Approved' };
+		const btn = document.getElementById('themeToggle');
+		function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
+		applyTheme(localStorage.getItem('theme') || 'light');
+		btn.addEventListener('click', ()=> applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
 
-		let dataCache;
-		let ownerFilter = ''; // '', 'solomon', 'harminder'
+		const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
+		const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
+		let dataCache = null;
 
-		function byGate(list){ const m={}; list.forEach(d=>{ const g=d.gate||'Uncategorized'; (m[g] ||= []).push(d); }); return m; }
-		function byStatus(list){ const m={Missing:[],Submitted:[],Rejected:[],Approved:[]}; list.forEach(d=>{ const s=STATUS_ORDER.includes(d.status)?d.status:'Missing'; m[s].push(d); }); return m; }
-		function counts(list){ const c={total:list.length,Approved:0,Submitted:0,Missing:0,Rejected:0}; list.forEach(d=> c[d.status]=(c[d.status]||0)+1 ); return c; }
-		function matchQuery(d,q){ if(!q)return true; const t=(d.title||'').toLowerCase(); const owners=(d.assignees||[]).join(' ').toLowerCase(); return t.includes(q)||owners.includes(q); }
+		function renderKPIs(k){
+			document.getElementById('kpiPaidVsBudget').textContent = ((k.paidVsBudget||0)*100).toFixed(1)+'%';
+			document.getElementById('kpiDeliverables').textContent = ((k.deliverablesProgress||0)*100).toFixed(0)+'%';
+			document.getElementById('kpiRisk').textContent = k.milestonesAtRisk||0;
+			document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
+			document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
+		}
+		function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
 
-		function gateHeader(g, items){
-			const c = counts(items);
-			return `
-				<div class="flex items-end justify-between mb-3">
-					<div>
-						<h2 class="text-xl font-black">${g}</h2>
-						<p class="text-xs text-slate-500">
-							Required: ${c.total}
-							• Approved: ${c.Approved}
-							• Submitted: ${c.Submitted}
-							• Missing: ${c.Missing}
-							• Rejected: ${c.Rejected}
-						</p>
-					</div>
-					<div class="text-xs text-slate-500">Last updated: ${new Date().toLocaleString()}</div>
-				</div>
-			`;
+		function renderAlerts(a){
+			const overdue = document.getElementById('overdueList'); overdue.innerHTML='';
+			a.paymentsOverdue.slice(0,8).forEach(p=>{
+				overdue.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
+			});
+			const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
+			a.paymentsUpcoming.slice(0,8).forEach(p=>{
+				upcoming.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-amber-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
+			});
+			const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
+			a.deliverablesIssues.slice(0,8).forEach(d=>{
+				deliv.appendChild(li(`<a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a><span class="text-xs font-bold ${d.status==='Rejected'?'text-rose-600':'text-slate-600'}">${d.status}</span>`));
+			});
+			const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
+			a.milestonesRisk.slice(0,8).forEach(m=>{
+				risk.appendChild(li(`<a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a><span class="text-xs font-bold text-rose-600">${m.riskStatus}</span>`));
+			});
 		}
 
-		function itemCard(d){
-			const owners = (d.assignees && d.assignees.length) ? d.assignees.join(', ') : '—';
-			const badgeClass = 'badge badge-' + (STATUS_ORDER.includes(d.status) ? d.status : 'Missing');
-			return `
-				<a href="${d.url}" target="_blank" class="card-item block">
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<p class="font-bold truncate">${d.title}</p>
-							<p class="text-xs text-slate-500 mt-1">Assignees: ${owners}</p>
+		let cashflowChart;
+		function renderCashflow(cf){
+			const ctx=document.getElementById('cashflowChart').getContext('2d');
+			const labels = cf.map(r=>r.ym);
+			const scheduled = cf.map(r=>r.scheduled);
+			const paid = cf.map(r=>r.paid);
+			if (cashflowChart) cashflowChart.destroy();
+			cashflowChart = new Chart(ctx,{
+				type:'bar',
+				data:{ labels, datasets:[
+					{ label:'Scheduled', data:scheduled, backgroundColor:'#0f2133', borderRadius:6 },
+					{ label:'Paid', data:paid, backgroundColor:'#e11d48', borderRadius:6 }
+				]},
+				options:{ plugins:{legend:{position:'bottom'}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#2b3445'}, beginAtZero:true}}}
+			});
+		}
+
+		function renderTopVendors(list){
+			const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML = '';
+			list.forEach(r => ul.insertAdjacentHTML('beforeend',
+			  `<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
+		}
+
+		function renderGates(gates){
+			const wrap = document.getElementById('gatesWrap'); wrap.innerHTML='';
+			gates.forEach(g=>{
+				const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
+				const card = document.createElement('div');
+				card.className='rounded border border-slate-200 p-4';
+				card.innerHTML = `
+					<div class="flex items-center justify-between">
+						<p class="font-bold">${g.id}</p>
+						<span class="text-xs ${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">${g.blocked>0?'Blocked':'Clear'}</span>
+					</div>
+					<div class="mt-3">
+						<div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
+							<div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
 						</div>
-						<span class="${badgeClass}">${d.status || 'Missing'}</span>
-					</div>
-				</a>
-			`;
-		}
-
-		function column(title, items){
-			return `
-				<div class="col p-3">
-					<div class="flex items-center justify-between mb-2">
-						<p class="text-xs font-bold text-slate-600">${title}</p>
-						<span class="text-[10px] text-slate-500">${items.length}</span>
-					</div>
-					<div class="space-y-2">
-						${items.map(itemCard).join('')}
-					</div>
-				</div>
-			`;
-		}
-
-		function setOwnerFilter(v){
-			ownerFilter = (v || '').toLowerCase();
-			document.querySelectorAll('#ownerChips [data-owner]').forEach(btn=>{
-				btn.classList.toggle('active', (btn.dataset.owner || '').toLowerCase() === ownerFilter);
-			});
-			render();
-		}
-
-		function render(){
-			const q = document.getElementById('q').value.trim().toLowerCase();
-			const gateSel = document.getElementById('gateFilter').value;
-
-			let list = (dataCache.deliverables || []).slice();
-			if (q) list = list.filter(d => matchQuery(d, q));
-			if (gateSel) list = list.filter(d => (d.gate || 'Uncategorized') === gateSel);
-
-			// Owner quick filter
-			if (ownerFilter) {
-				const key = ownerFilter.toLowerCase();
-				list = list.filter(d => (d.assignees || []).some(a => (a || '').toLowerCase().includes(key)));
-			}
-
-			const grouped = byGate(list);
-			const gates = Object.keys(grouped).sort((a,b)=> a.localeCompare(b));
-
-			const root = document.getElementById('root');
-			root.innerHTML = '';
-
-			if (gates.length === 0){
-				root.innerHTML = `<div class="text-slate-500 text-sm">No deliverables match your filter.</div>`;
-				return;
-			}
-
-			gates.forEach(gate => {
-				const items = grouped[gate];
-				const statusGroups = byStatus(items);
-
-				const board = `
-					<section>
-						${gateHeader(gate, items)}
-						<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-							${STATUS_ORDER.map(s => column(STATUS_TITLES[s], statusGroups[s])).join('')}
-						</div>
-					</section>
-				`;
-				root.insertAdjacentHTML('beforeend', board);
+						<p class="mt-2 text-xs text-[var(--muted)]">Approved ${g.approved} / ${g.required} • Milestones complete ${g.milestonesComplete}</p>
+					</div>`;
+				wrap.appendChild(card);
 			});
 		}
 
-		async function load(){
-			const res = await fetch('/.netlify/functions/proxy');
-			if (!res.ok) throw new Error('Failed to load data');
-			dataCache = await res.json();
-
-			// Populate gate filter
-			const gates = Array.from(new Set((dataCache.deliverables||[]).map(d => d.gate || 'Uncategorized'))).sort();
-			const sel = document.getElementById('gateFilter');
-			gates.forEach(g => sel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
-
-			// Owner chips
-			document.querySelectorAll('#ownerChips [data-owner]').forEach(btn=>{
-				btn.addEventListener('click', ()=> setOwnerFilter(btn.dataset.owner));
-			});
-			// URL param ?owner=solomon|harminder
-			const urlOwner = new URLSearchParams(location.search).get('owner');
-			if (urlOwner) setOwnerFilter(urlOwner);
-
-			render();
+		async function loadData(){
+			const r = await fetch('/.netlify/functions/proxy');
+			if (!r.ok) throw new Error('Failed to fetch project data');
+			dataCache = await r.json();
+			renderKPIs(dataCache.kpis);
+			renderAlerts(dataCache.alerts);
+			renderCashflow(dataCache.cashflow);
+			renderGates(dataCache.gates);
+			renderTopVendors(dataCache.topVendors);
 		}
 
-		document.getElementById('q').addEventListener('input', render);
-		document.getElementById('gateFilter').addEventListener('change', render);
-		load().catch(err=>{
-			document.getElementById('root').innerHTML = `<div class="text-rose-600 text-sm">Error: ${err.message}</div>`;
-		});
+		let summaryOnce = false;
+		async function autoSummary(){
+			if (summaryOnce || !dataCache) return;
+			summaryOnce = true;
+			const resp = await fetch('/.netlify/functions/proxy', {
+				method:'POST',
+				headers:{'Content-Type':'application/json'},
+				body: JSON.stringify({ type:'summary', data: dataCache })
+			});
+			const out = await resp.json();
+			document.getElementById('summaryOut').textContent = out.text || 'No response.';
+		}
+		document.getElementById('genSummary').addEventListener('click', autoSummary);
+
+		loadData().then(autoSummary).catch(err=>console.error(err));
 	</script>
 </body>
 </html>

@@ -8,7 +8,7 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
 	<script src="https://cdn.tailwindcss.com"></script>
-	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 	<style>
 		:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
 		.dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
@@ -124,7 +124,6 @@
 	</div>
 
 	<script>
-		// Theme
 		const btn = document.getElementById('themeToggle');
 		function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
 		applyTheme(localStorage.getItem('theme') || 'light');
@@ -148,17 +147,14 @@
 			a.paymentsOverdue.slice(0,8).forEach(p=>{
 				overdue.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
 			});
-
 			const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
 			a.paymentsUpcoming.slice(0,8).forEach(p=>{
 				upcoming.appendChild(li(`<a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${p.title}</a><span class="text-amber-600 font-bold">${fmtMYR(p.amount)}</span><span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`));
 			});
-
 			const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
 			a.deliverablesIssues.slice(0,8).forEach(d=>{
 				deliv.appendChild(li(`<a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a><span class="text-xs font-bold ${d.status==='Rejected'?'text-rose-600':'text-slate-600'}">${d.status}</span>`));
 			});
-
 			const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
 			a.milestonesRisk.slice(0,8).forEach(m=>{
 				risk.appendChild(li(`<a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a><span class="text-xs font-bold text-rose-600">${m.riskStatus}</span>`));
@@ -220,13 +216,13 @@
 			renderTopVendors(dataCache.topVendors);
 		}
 
-		// Auto summary once
 		let summaryOnce = false;
 		async function autoSummary(){
 			if (summaryOnce || !dataCache) return;
 			summaryOnce = true;
 			const resp = await fetch('/.netlify/functions/proxy', {
-				method:'POST', headers:{'Content-Type':'application/json'},
+				method:'POST',
+				headers:{'Content-Type':'application/json'},
 				body: JSON.stringify({ type:'summary', data: dataCache })
 			});
 			const out = await resp.json();
