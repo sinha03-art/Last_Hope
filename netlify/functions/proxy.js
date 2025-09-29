@@ -1,6 +1,6 @@
 /**
  * Renovation Project Hub proxy
- * Adds: KPIs, alerts, cashflow, per-gate aggregates, Top Vendors, row URLs + summary POST.
+ * KPIs, alerts, cashflow, per-gate aggregates, Top Vendors, row URLs, Owner assignees + summary POST.
  */
 const {
   GEMINI_API_KEY,
@@ -16,7 +16,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const url = `{{https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}}}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +32,7 @@ async function queryNotionDB(databaseId, filter, sorts) {
   if (filter && Object.keys(filter).length > 0) body.filter = filter;
   if (sorts && sorts.length > 0) body.sorts = sorts;
 
-  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+  const res = await fetch(`{{https://api.notion.com/v1/databases/${databaseId}}}/query`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${NOTION_API_KEY}`,
@@ -50,7 +50,6 @@ async function queryNotionDB(databaseId, filter, sorts) {
   return res.json();
 }
 
-// Helpers
 function ymKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 exports.handler = async (event) => {
@@ -115,11 +114,13 @@ Issue: "${data.gateIssue}"`;
         url: p.url,
       }));
 
+      // DELIVERABLES: Owner mapping enabled
       const deliverables = (deliverablesData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
         gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
         status: p.properties?.Status?.select?.name ?? 'Missing',
+        assignees: (p.properties?.Owner?.people || []).map(x => x.name || x.id),
         url: p.url,
       }));
 
@@ -141,8 +142,8 @@ Issue: "${data.gateIssue}"`;
         return acc;
       }, {});
 
-      // KPI calculations
-      const totalBudget = (milestonesData.results||[]).reduce((sum, p) => sum + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
+      // KPIs
+      const totalBudget = (milestonesData.results||[]).reduce((s, p) => s + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
       const totalPaid = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount||0), 0);
 
       // Next 30 days
@@ -153,11 +154,7 @@ Issue: "${data.gateIssue}"`;
         const d = p.dueDate ? new Date(p.dueDate) : null;
         return d && d >= now && d <= in30;
       });
-      const next30 = {
-        amount: next30Items.reduce((s,p)=>s+(p.amount||0),0),
-        count: next30Items.length,
-        items: next30Items.slice(0,50),
-      };
+      const next30 = { amount: next30Items.reduce((s,p)=>s+(p.amount||0),0), count: next30Items.length, items: next30Items.slice(0,50) };
 
       // Alerts
       const overdue = payments.filter(p=>{
@@ -175,29 +172,21 @@ Issue: "${data.gateIssue}"`;
       const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
       const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
 
-      // Cashflow by month (Scheduled vs Paid)
+      // Cashflow
       const cashAgg = {};
       payments.forEach(p=>{
         const due = p.dueDate ? new Date(p.dueDate) : null;
-        if (due){
-          const k = ymKey(due);
-          cashAgg[k] = cashAgg[k] || { ym: k, scheduled: 0, paid: 0 };
-          cashAgg[k].scheduled += (p.amount||0);
-        }
+        if (due){ const k = ymKey(due); cashAgg[k] = cashAgg[k]||{ym:k,scheduled:0,paid:0}; cashAgg[k].scheduled += (p.amount||0); }
         const paid = p.paidDate ? new Date(p.paidDate) : null;
-        if (paid){
-          const k2 = ymKey(paid);
-          cashAgg[k2] = cashAgg[k2] || { ym: k2, scheduled: 0, paid: 0 };
-          cashAgg[k2].paid += (p.amount||0);
-        }
+        if (paid){ const k2 = ymKey(paid); cashAgg[k2] = cashAgg[k2]||{ym:k2,scheduled:0,paid:0}; cashAgg[k2].paid += (p.amount||0); }
       });
       const cashflow = Object.values(cashAgg).sort((a,b)=> a.ym.localeCompare(b.ym));
 
-      // Per-gate aggregates
+      // Gates aggregates
       const gatesIndex = {};
       deliverables.forEach(d=>{
         const g = d.gate || 'Uncategorized';
-        gatesIndex[g] = gatesIndex[g] || { id: g, required: 0, approved: 0, blocked: 0, milestonesComplete: 0 };
+        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
         gatesIndex[g].required += 1;
         if (d.status === 'Approved') gatesIndex[g].approved += 1;
         if (d.status === 'Rejected' || d.status === 'Missing') gatesIndex[g].blocked += 1;
@@ -205,45 +194,28 @@ Issue: "${data.gateIssue}"`;
       milestones.forEach(m=>{
         if (!m.phase) return;
         const g = m.phase;
-        gatesIndex[g] = gatesIndex[g] || { id: g, required: 0, approved: 0, blocked: 0, milestonesComplete: 0 };
+        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
         if (m.progress >= 1 || String(m.indicator).toLowerCase().includes('complete')) {
           gatesIndex[g].milestonesComplete += 1;
         }
       });
       const gates = Object.values(gatesIndex);
 
-      // Top vendors outstanding
+      // Top Vendors
       const vendorOutstanding = {};
-      payments.forEach(p => {
-        if (p.status !== 'Paid') {
-          const v = p.vendor || 'Unknown';
-          vendorOutstanding[v] = (vendorOutstanding[v] || 0) + (p.amount || 0);
-        }
-      });
-      const topVendors = Object.entries(vendorOutstanding)
-        .map(([vendor, amount]) => ({ vendor, amount }))
-        .sort((a,b) => b.amount - a.amount)
-        .slice(0, 5);
+      payments.forEach(p=>{ if (p.status !== 'Paid') vendorOutstanding[p.vendor||'Unknown'] = (vendorOutstanding[p.vendor||'Unknown']||0) + (p.amount||0); });
+      const topVendors = Object.entries(vendorOutstanding).map(([vendor,amount])=>({vendor,amount})).sort((a,b)=>b.amount-a.amount).slice(0,5);
 
       const kpis = {
         paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
-        deliverablesProgress: deliverables.length > 0 ? (deliverables.filter(d=>d.status==='Approved').length / deliverables.length) : 0,
+        deliverablesProgress: deliverables.length>0 ? (deliverables.filter(d=>d.status==='Approved').length / deliverables.length) : 0,
         milestonesAtRisk: milestonesRisk.length,
         next30,
       };
 
-      const alerts = {
-        paymentsOverdue: overdue,
-        paymentsUpcoming: upcoming,
-        deliverablesIssues,
-        milestonesRisk,
-      };
+      const alerts = { paymentsOverdue: overdue, paymentsUpcoming: upcoming, deliverablesIssues, milestonesRisk };
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ milestones, deliverables, payments, kpis, alerts, cashflow, gates, topVendors, config }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ milestones, deliverables, payments, kpis, alerts, cashflow, gates, topVendors, config }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
