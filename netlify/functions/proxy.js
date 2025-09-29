@@ -68,7 +68,6 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers };
 
   try {
-    // POST: AI text generation (summary | suggestion)
     if (event.httpMethod === 'POST') {
       let type, data;
       try { ({ type, data } = JSON.parse(event.body || '{}')); }
@@ -93,7 +92,6 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ text }) };
     }
 
-    // GET: snapshot
     if (event.httpMethod === 'GET') {
       const missing = ['MILESTONES_DB_ID','DELIVERABLES_DB_ID','PAYMENTS_DB_ID','CONFIG_DB_ID','NOTION_API_KEY']
         .filter(k => !process.env[k]);
@@ -188,7 +186,7 @@ exports.handler = async (event) => {
       const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
       const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
 
-      // Cashflow aggregation (scheduled vs paid by month) kept for forecast use on FE
+      // Cashflow aggregation (scheduled vs paid by month) kept for forecast
       const cashAgg = {};
       payments.forEach(p=>{
         const due = p.dueDate ? new Date(p.dueDate) : null;
@@ -233,6 +231,7 @@ exports.handler = async (event) => {
           vendorOutstanding[key] = (vendorOutstanding[key] || 0) + (p.amount || 0);
         }
       });
+      // Keep original display formatting as uppercase key; can map back if you store display names separately
       const topVendors = Object.entries(vendorOutstanding)
         .map(([vendor, amount]) => ({ vendor, amount }))
         .sort((a,b)=> b.amount - a.amount)

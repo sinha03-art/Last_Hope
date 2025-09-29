@@ -1,260 +1,264 @@
-/**
- * Renovation Project Hub proxy
- * KPIs, alerts, cashflow, per-gate aggregates, Top Vendors, row URLs, Owner assignees + summary POST.
- */
-const {
-  GEMINI_API_KEY,
-  NOTION_API_KEY,
-  MILESTONES_DB_ID,
-  DELIVERABLES_DB_ID,
-  PAYMENTS_DB_ID,
-  CONFIG_DB_ID,
-} = process.env;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Project Dashboard</title>
 
-const NOTION_VERSION = '2022-06-28';
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+  <!-- Fonts and libs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-// URL builders (plain HTTPS)
-const NOTION_DB_QUERY_URL = (dbId) => `https://api.notion.com/v1/databases/${dbId}/query`;
-const GEMINI_URL = (model, key) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-
-// Helpers
-function ymKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
-
-async function callGemini(prompt) {
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
-  const res = await fetch(GEMINI_URL(GEMINI_MODEL, GEMINI_API_KEY), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(()=> '');
-    throw new Error(`Gemini ${res.status}: ${text.slice(0,300)}`);
+  <style>
+  :root{
+    --bg:#f6f8fa; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --border:#e5e7eb;
+    --h1:1.375rem; --h2:1.125rem; --h3:1rem; --body:.9375rem; --small:.8125rem;
   }
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  html,body{height:100%}
+  body{
+    font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    background:var(--bg); color:var(--ink); font-size:var(--body);
+  }
+  h1{font-size:var(--h1); font-weight:900; letter-spacing:.01em; text-transform:uppercase}
+  h2{font-size:var(--h2); font-weight:800; letter-spacing:.01em}
+  h3{font-size:var(--h3); font-weight:800}
+  .small{font-size:var(--small); color:var(--muted)}
+  .upper{text-transform:uppercase}
+  .nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
+  .pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
+  .hr{height:1px; background: var(--border);}
+  .top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
+  .kpi{border:1px solid var(--border); border-radius:.75rem; padding:1rem; background:var(--panel)}
+  .card{background:var(--panel)}
+  </style>
+</head>
+<body>
+<div class="min-h-screen grid grid-cols-[260px_1fr]">
+
+  <!-- Sidebar -->
+  <aside class="bg-[#0f2133] text-[#e2e8f0]">
+    <div class="p-6">
+      <!-- 16:9 responsive wrapper -->
+      <div class="relative w-full overflow-hidden rounded mb-3" style="padding-top:56.25%">
+        <iframe
+          src="https://player.vimeo.com/video/000000000?autoplay=1&muted=1&loop=1&title=0&byline=0&portrait=0&background=1"
+          title="Project intro"
+          class="absolute inset-0 w-full h-full"
+          frameborder="0"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowfullscreen
+          loading="lazy">
+        </iframe>
+      </div>
+
+      <div class="leading-tight">
+        <p class="font-black tracking-wide upper">JOOBIN</p>
+        <p class="text-[10px] opacity-70">Assets</p>
+      </div>
+
+      <!-- Short property write-up -->
+      <div class="mt-3 text-[13px] text-white">
+        <p><strong>Project:</strong> JOOBIN Residence</p>
+        <p><strong>Status:</strong> 3D design stage. Construction not started.</p>
+        <p class="text-[12px] opacity-70">One‑minute ambient clip sharing corrected code and dashboard direction.</p>
+      </div>
+    </div>
+
+    <nav class="mt-4 text-sm">
+      <div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
+      <ul>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Dosier</span></a></li>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="deliverables.html"><span>Gate Deliverables</span><span class="pill">New</span></a></li>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Project Stage</span></a></li>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Media</span><span class="pill">New</span></a></li>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Tasks</span></a></li>
+        <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#"><span>Forms</span></a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex flex-col">
+    <header class="card top-shadow">
+      <div class="h-14 flex items-center justify-between px-6">
+        <h1>Dashboard</h1>
+        <div class="text-xs opacity-70">JOOBIN</div>
+      </div>
+    </header>
+
+    <main class="p-6 space-y-6">
+      <!-- KPI strip -->
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="kpi"><p class="text-xs upper text-[var(--muted)]">Paid vs Budget</p><p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p></div>
+        <div class="kpi"><p class="text-xs upper text-[var(--muted)]">Deliverables Approved</p><p id="kpiDeliverables" class="text-3xl font-black">0%</p></div>
+        <div class="kpi"><p class="text-xs upper text-[var(--muted)]">Milestones At Risk</p><p id="kpiRisk" class="text-3xl font-black">0</p></div>
+        <div class="kpi">
+          <p class="text-xs upper text-[var(--muted)]">Next 30d Due</p>
+          <p id="kpiNext30" class="text-3xl font-black">RM 0</p>
+          <p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p>
+        </div>
+      </section>
+
+      <!-- Attention + Forecast -->
+      <section class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+          <h3 class="font-black tracking-wide mb-3 upper">Attention Board</h3>
+
+          <p class="text-xs upper text-[var(--muted)] mb-2">Overdue Payments</p>
+          <ul id="overdueList" class="space-y-2 text-sm mb-4"></ul>
+
+          <div class="hr my-4"></div>
+
+          <p class="text-xs upper text-[var(--muted)] mb-2">Payment Forecast (by month)</p>
+          <canvas id="forecastChart" height="120"></canvas>
+        </div>
+
+        <!-- Top Vendors -->
+        <div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+          <h3 class="font-black tracking-wide mb-3 upper">Top Vendors Outstanding</h3>
+          <ul id="topVendors" class="space-y-2 text-sm"></ul>
+        </div>
+      </section>
+
+      <!-- Gate Progress (minimal) -->
+      <section class="card rounded border border-slate-200 p-6">
+        <h3 class="font-black tracking-wide mb-3 upper">Gate Progress (Minimal)</h3>
+        <div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- AI Summary -->
+      <section class="card rounded border border-slate-200 p-6">
+        <div class="flex items-center justify-between">
+          <h3 class="font-black tracking-wide">Weekly AI Summary</h3>
+          <button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
+        </div>
+        <div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+// Utilities
+const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
+const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
+function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
+
+let dataCache = null;
+
+// KPIs
+function renderKPIs(k){
+  document.getElementById('kpiPaidVsBudget').textContent = ((k.paidVsBudget||0)*100).toFixed(1)+'%';
+  document.getElementById('kpiDeliverables').textContent = ((k.deliverablesProgress||0)*100).toFixed(0)+'%';
+  document.getElementById('kpiRisk').textContent = k.milestonesAtRisk||0;
+  document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
+  document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0) + ' items';
 }
 
-async function queryNotionDB(databaseId, filter, sorts) {
-  const body = {};
-  if (filter && Object.keys(filter).length > 0) body.filter = filter;
-  if (sorts && sorts.length > 0) body.sorts = sorts;
-
-  const res = await fetch(NOTION_DB_QUERY_URL(databaseId), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${NOTION_API_KEY}`,
-      'Notion-Version': NOTION_VERSION,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+// Attention - Overdue payments (Recipient, Amount, Due by)
+function renderOverdue(a){
+  const ul = document.getElementById('overdueList'); ul.innerHTML='';
+  a.paymentsOverdue.slice(0,12).forEach(p=>{
+    ul.appendChild(li(
+      `<span class="truncate">${p.vendor || '—'}</span>
+       <span class="text-rose-600 font-bold">${fmtMYR(p.amount)}</span>
+       <span class="text-xs text-[var(--muted)]">${fmtDate(p.dueDate)}</span>`
+    ));
   });
-  if (!res.ok) {
-    const text = await res.text().catch(()=> '');
-    console.error(`Notion error for DB ${databaseId}: ${res.status} ${text}`);
-    throw new Error(`Notion ${res.status}`);
-  }
-  return res.json();
 }
 
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers };
-
-  try {
-    if (event.httpMethod === 'POST') {
-      let type, data;
-      try { ({ type, data } = JSON.parse(event.body || '{}')); }
-      catch {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
-      }
-      if (type !== 'summary' && type !== 'suggestion') {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
-      }
-
-      let prompt = '';
-      if (type === 'summary') {
-        const k = data.kpis || {};
-        const kpiText = `Paid vs Budget: ${((k.paidVsBudget||0)*100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress||0)*100).toFixed(0)}% approved, Milestones At Risk: ${k.milestonesAtRisk||0}, Next 30d Due: RM ${(k.next30?.amount||0).toLocaleString('en-MY')} (${k.next30?.count||0} items).`;
-        const milestonesText = (data.milestones||[]).slice(0,10).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
-        prompt = `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.  Key Metrics: ${kpiText}  Key Milestones: ${milestonesText}`;
-      } else {
-        prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.  Milestone: "${data.title}" Financial: ${data.indicator} Issue: "${data.gateIssue}"`;
-      }
-
-      const text = await callGemini(prompt);
-      return { statusCode: 200, headers, body: JSON.stringify({ text }) };
-    }
-
-    if (event.httpMethod === 'GET') {
-      const missing = ['MILESTONES_DB_ID','DELIVERABLES_DB_ID','PAYMENTS_DB_ID','CONFIG_DB_ID','NOTION_API_KEY']
-        .filter(k => !process.env[k]);
-      if (missing.length) {
-        return { statusCode: 500, headers, body: JSON.stringify({ error: 'Missing environment variables', details: missing }) };
-      }
-
-      const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
-        queryNotionDB(MILESTONES_DB_ID, undefined, [{ property: 'StartDate', direction: 'ascending' }]),
-        queryNotionDB(DELIVERABLES_DB_ID),
-        queryNotionDB(PAYMENTS_DB_ID),
-        queryNotionDB(CONFIG_DB_ID),
-      ]);
-
-      const milestones = (milestonesData.results||[]).map(p => ({
-        id: p.id,
-        title: p.properties?.MilestoneTitle?.title?.[0]?.plain_text ?? 'Untitled',
-        riskStatus: p.properties?.Risk?.status?.name ?? 'OK',
-        phase: p.properties?.Phase?.select?.name ?? 'Uncategorized',
-        progress: p.properties?.Progress?.number ?? 0,
-        indicator: p.properties?.Indicator?.formula?.string ?? '🟢 OK',
-        url: p.url,
-      }));
-
-      const deliverables = (deliverablesData.results||[]).map(p => ({
-        id: p.id,
-        title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
-        gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
-        status: p.properties?.Status?.select?.name ?? 'Missing',
-        assignees: (p.properties?.Owner?.people || []).map(x => x?.name || x?.id),
-        url: p.url,
-      }));
-
-      // Prefer a structured vendor; fallback to rich_text; normalize for grouping
-      function getVendorName(page) {
-        const props = page.properties || {};
-        const sel = props?.Vendor?.select?.name;
-        const rel = props?.Vendor?.relation?.[0]?.name;
-        const txt = props?.Vendor?.rich_text?.[0]?.plain_text;
-        return (sel || rel || txt || 'Unknown').trim();
-      }
-
-      const payments = (paymentsData.results||[]).map(p => ({
-        id: p.id,
-        title: p.properties?.['Payment For']?.title?.[0]?.plain_text ?? 'Untitled',
-        vendor: getVendorName(p),
-        amount: p.properties?.['Amount (RM)']?.number ?? 0,
-        status: p.properties?.Status?.select?.name ?? 'Outstanding',
-        dueDate: p.properties?.DueDate?.date?.start ?? null,
-        paidDate: p.properties?.PaidDate?.date?.start ?? null,
-        url: p.url,
-      }));
-
-      const config = (configData.results||[]).reduce((acc, p) => {
-        const key = p.properties?.Key?.title?.[0]?.plain_text;
-        const value = p.properties?.Value?.rich_text?.[0]?.plain_text;
-        if (key) acc[key] = value;
-        return acc;
-      }, {});
-
-      // KPIs
-      const totalBudget = (milestonesData.results||[]).reduce((s, p) => s + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
-      const totalPaid = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount||0), 0);
-
-      // Next 30 days
-      const now = new Date();
-      const in30 = new Date(now.getTime() + 30*24*60*60*1000);
-      const next30Items = payments.filter(p => {
-        if (p.status === 'Paid') return false;
-        const d = p.dueDate ? new Date(p.dueDate) : null;
-        return d && d >= now && d <= in30;
-      });
-      const next30 = { amount: next30Items.reduce((s,p)=>s+(p.amount||0),0), count: next30Items.length, items: next30Items.slice(0,50) };
-
-      // Alerts
-      const overdue = payments
-        .filter(p=>{
-          if (p.status === 'Paid') return false;
-          const d = p.dueDate ? new Date(p.dueDate) : null;
-          return d && d < now;
-        })
-        .sort((a,b)=> new Date(a.dueDate)-new Date(b.dueDate));
-
-      const upcoming = payments
-        .filter(p=>{
-          if (p.status === 'Paid') return false;
-          const d = p.dueDate ? new Date(p.dueDate) : null;
-          return d && d >= now && d <= in30;
-        })
-        .sort((a,b)=> new Date(a.dueDate)-new Date(b.dueDate));
-
-      const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
-      const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
-
-      // Cashflow aggregation (scheduled vs paid by month) kept for forecast
-      const cashAgg = {};
-      payments.forEach(p=>{
-        const due = p.dueDate ? new Date(p.dueDate) : null;
-        if (due){
-          const k = ymKey(due);
-          cashAgg[k] = cashAgg[k] || { ym:k, scheduled:0, paid:0 };
-          cashAgg[k].scheduled += (p.amount||0);
-        }
-        const paid = p.paidDate ? new Date(p.paidDate) : null;
-        if (paid){
-          const k2 = ymKey(paid);
-          cashAgg[k2] = cashAgg[k2] || { ym:k2, scheduled:0, paid:0 };
-          cashAgg[k2].paid += (p.amount||0);
-        }
-      });
-      const cashflow = Object.values(cashAgg).sort((a,b)=> a.ym.localeCompare(b.ym));
-
-      // Gate aggregates
-      const gatesIndex = {};
-      deliverables.forEach(d=>{
-        const g = d.gate || 'Uncategorized';
-        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
-        gatesIndex[g].required += 1;
-        if (d.status === 'Approved') gatesIndex[g].approved += 1;
-        if (d.status === 'Rejected' || d.status === 'Missing') gatesIndex[g].blocked += 1;
-      });
-      milestones.forEach(m=>{
-        if (!m.phase) return;
-        const g = m.phase;
-        gatesIndex[g] = gatesIndex[g] || { id:g, required:0, approved:0, blocked:0, milestonesComplete:0 };
-        if (m.progress >= 1 || String(m.indicator).toLowerCase().includes('complete')) {
-          gatesIndex[g].milestonesComplete += 1;
-        }
-      });
-      const gates = Object.values(gatesIndex);
-
-      // Top vendors outstanding (normalize vendor key)
-      const vendorOutstanding = {};
-      payments.forEach(p=>{
-        if (p.status !== 'Paid') {
-          const key = (p.vendor || 'Unknown').replace(/\s+/g,' ').trim().toUpperCase();
-          vendorOutstanding[key] = (vendorOutstanding[key] || 0) + (p.amount || 0);
-        }
-      });
-      // Keep original display formatting as uppercase key; can map back if you store display names separately
-      const topVendors = Object.entries(vendorOutstanding)
-        .map(([vendor, amount]) => ({ vendor, amount }))
-        .sort((a,b)=> b.amount - a.amount)
-        .slice(0, 5);
-
-      const kpis = {
-        paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
-        deliverablesProgress:
-          deliverables.length > 0
-            ? deliverables.filter(d=>d.status==='Approved').length / deliverables.length
-            : 0,
-        milestonesAtRisk: milestonesRisk.length,
-        next30,
-      };
-
-      const alerts = { paymentsOverdue: overdue, paymentsUpcoming: upcoming, deliverablesIssues, milestonesRisk };
-
-      return { statusCode: 200, headers, body: JSON.stringify({ milestones, deliverables, payments, kpis, alerts, cashflow, gates, topVendors, config }) };
-    }
-
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  } catch (error) {
-    console.error('Server Error:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
+// Forecast next 4 months (from cashflow.scheduled)
+function buildForecast(cashflow){
+  const now = new Date();
+  const ym = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const months = [];
+  for(let i=0;i<4;i++){
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push(ym(d));
   }
-};
+  const idx = Object.fromEntries(cashflow.map(r => [r.ym, r]));
+  return { months, values: months.map(m => idx[m]?.scheduled || 0) };
+}
+
+let forecastChart;
+function renderForecast(cf){
+  const ctx = document.getElementById('forecastChart').getContext('2d');
+  const now = new Date();
+  const { months, values } = buildForecast(cf);
+  const labels = months.map((m,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    return d.toLocaleDateString('en-GB', { month:'short', year:'2-digit' });
+  });
+  if (forecastChart) forecastChart.destroy();
+  forecastChart = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Scheduled',
+      data: values,
+      tension:.3,
+      borderColor:'#0f2133',
+      backgroundColor:'rgba(15,33,51,.08)',
+      fill:true, pointRadius:3, pointBackgroundColor:'#0f2133'
+    }]},
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, grid:{color:'#e5e7eb'}}}}
+  });
+}
+
+// Top Vendors
+function renderTopVendors(list){
+  const ul = document.getElementById('topVendors'); ul.innerHTML='';
+  list.forEach(r => ul.insertAdjacentHTML('beforeend',
+    `<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`
+  ));
+}
+
+// Gate Progress (minimal counts)
+function renderGates(gates){
+  const wrap = document.getElementById('gatesWrap'); wrap.innerHTML='';
+  gates.forEach(g=>{
+    const card = document.createElement('div');
+    card.className='rounded border border-slate-200 p-4';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <p class="font-bold">${g.id}</p>
+        <span class="text-xs ${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">${g.blocked>0?'Blocked':'Clear'}</span>
+      </div>
+      <p class="mt-2 text-xs text-[var(--muted)]">Approved ${g.approved} / Required ${g.required} • Milestones complete ${g.milestonesComplete}</p>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+async function loadData(){
+  const r = await fetch('/.netlify/functions/proxy');
+  if (!r.ok) throw new Error('Failed to fetch project data');
+  dataCache = await r.json();
+  renderKPIs(dataCache.kpis);
+  renderOverdue(dataCache.alerts);
+  renderForecast(dataCache.cashflow);
+  renderGates(dataCache.gates);
+  renderTopVendors(dataCache.topVendors);
+}
+
+// AI Summary (manual)
+let summaryOnce = false;
+async function autoSummary(){
+  if (summaryOnce || !dataCache) return;
+  summaryOnce = true;
+  const resp = await fetch('/.netlify/functions/proxy', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ type:'summary', data: dataCache })
+  });
+  const out = await resp.json();
+  document.getElementById('summaryOut').textContent = out.text || 'No response.';
+}
+document.getElementById('genSummary').addEventListener('click', autoSummary);
+
+loadData().catch(err=>console.error(err));
+</script>
+</body>
+</html>
