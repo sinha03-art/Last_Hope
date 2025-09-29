@@ -13,15 +13,19 @@ const {
 
 const NOTION_VERSION = '2022-06-28';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
-const NOTION_DB_QUERY_URL = (dbId) => `https://api.notion.com/v1/databases/${dbId}/query`;
-const GEMINI_URL = (model, key) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+
+// Plain HTTPS URL builders (no braces)
+const NOTION_DB_QUERY_URL = (dbId) => `{{https://api.notion.com/v1/databases/${dbId}}}/query`;
+const GEMINI_URL = (model, key) => `{{https://generativelanguage.googleapis.com/v1beta/models/${model}}}:generateContent?key=${encodeURIComponent(key)}`;
+
+function ymKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
   const res = await fetch(GEMINI_URL(GEMINI_MODEL, GEMINI_API_KEY), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }]}] }),
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   if (!res.ok) {
     const text = await res.text().catch(()=>'');
@@ -46,14 +50,12 @@ async function queryNotionDB(databaseId, filter, sorts) {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const text = await res.text().catch(()=> '');
+    const text = await res.text().catch(() => '');
     console.error(`Notion error for DB ${databaseId}: ${res.status} ${text}`);
     throw new Error(`Notion ${res.status}`);
   }
   return res.json();
 }
-
-function ymKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 exports.handler = async (event) => {
   const headers = {
@@ -67,9 +69,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       let type, data;
       try { ({ type, data } = JSON.parse(event.body || '{}')); }
-      catch {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
-      }
+      catch { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
 
       if (type !== 'summary' && type !== 'suggestion') {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
@@ -80,19 +80,9 @@ exports.handler = async (event) => {
         const k = data.kpis || {};
         const kpiText = `Paid vs Budget: ${((k.paidVsBudget||0)*100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress||0)*100).toFixed(0)}% approved, Milestones At Risk: ${k.milestonesAtRisk||0}, Next 30d Due: RM ${(k.next30?.amount||0).toLocaleString('en-MY')} (${k.next30?.count||0} items).`;
         const milestonesText = (data.milestones||[]).slice(0,10).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
-        prompt = `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.
-
-Key Metrics:
-${kpiText}
-
-Key Milestones:
-${milestonesText}`;
+        prompt = `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.  Key Metrics: ${kpiText}  Key Milestones: ${milestonesText}`;
       } else {
-        prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.
-
-Milestone: "${data.title}"
-Financial: ${data.indicator}
-Issue: "${data.gateIssue}"`;
+        prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.  Milestone: "${data.title}" Financial: ${data.indicator} Issue: "${data.gateIssue}"`;
       }
 
       const text = await callGemini(prompt);
@@ -100,7 +90,6 @@ Issue: "${data.gateIssue}"`;
     }
 
     if (event.httpMethod === 'GET') {
-      // Basic config guardrails
       const missing = ['MILESTONES_DB_ID','DELIVERABLES_DB_ID','PAYMENTS_DB_ID','CONFIG_DB_ID','NOTION_API_KEY']
         .filter(k => !process.env[k]);
       if (missing.length) {
@@ -124,12 +113,13 @@ Issue: "${data.gateIssue}"`;
         url: p.url,
       }));
 
+      // Owner mapping enabled (assignees as strings)
       const deliverables = (deliverablesData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
         gate: p.properties?.Gate?.select?.name ?? 'Uncategorized',
         status: p.properties?.Status?.select?.name ?? 'Missing',
-        assignees: (p.properties?.Owner?.people || []).map(x => x.name || x.id),
+        assignees: (p.properties?.Owner?.people || []).map(x => x?.name || x?.id),
         url: p.url,
       }));
 
@@ -144,6 +134,7 @@ Issue: "${data.gateIssue}"`;
         url: p.url,
       }));
 
+      // Config map
       const config = (configData.results||[]).reduce((acc, p) => {
         const key = p.properties?.Key?.title?.[0]?.plain_text;
         const value = p.properties?.Value?.rich_text?.[0]?.plain_text;
@@ -181,17 +172,25 @@ Issue: "${data.gateIssue}"`;
       const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
       const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
 
-      // Cashflow
+      // Cashflow (scheduled vs paid)
       const cashAgg = {};
       payments.forEach(p=>{
         const due = p.dueDate ? new Date(p.dueDate) : null;
-        if (due){ const k = ymKey(due); cashAgg[k] = cashAgg[k]||{ym:k,scheduled:0,paid:0}; cashAgg[k].scheduled += (p.amount||0); }
+        if (due){
+          const k = ymKey(due);
+          cashAgg[k] = cashAgg[k] || { ym:k, scheduled:0, paid:0 };
+          cashAgg[k].scheduled += (p.amount||0);
+        }
         const paid = p.paidDate ? new Date(p.paidDate) : null;
-        if (paid){ const k2 = ymKey(paid); cashAgg[k2] = cashAgg[k2]||{ym:k2,scheduled:0,paid:0}; cashAgg[k2].paid += (p.amount||0); }
+        if (paid){
+          const k2 = ymKey(paid);
+          cashAgg[k2] = cashAgg[k2] || { ym:k2, scheduled:0, paid:0 };
+          cashAgg[k2].paid += (p.amount||0);
+        }
       });
       const cashflow = Object.values(cashAgg).sort((a,b)=> a.ym.localeCompare(b.ym));
 
-      // Gates aggregates
+      // Per-gate aggregates
       const gatesIndex = {};
       deliverables.forEach(d=>{
         const g = d.gate || 'Uncategorized';
@@ -210,14 +209,19 @@ Issue: "${data.gateIssue}"`;
       });
       const gates = Object.values(gatesIndex);
 
-      // Top Vendors
+      // Top vendors outstanding
       const vendorOutstanding = {};
       payments.forEach(p=>{ if (p.status !== 'Paid') vendorOutstanding[p.vendor||'Unknown'] = (vendorOutstanding[p.vendor||'Unknown']||0) + (p.amount||0); });
-      const topVendors = Object.entries(vendorOutstanding).map(([vendor,amount])=>({vendor,amount})).sort((a,b)=>b.amount-a.amount).slice(0,5);
+      const topVendors = Object.entries(vendorOutstanding)
+        .map(([vendor,amount])=>({vendor,amount}))
+        .sort((a,b)=>b.amount-a.amount)
+        .slice(0,5);
 
       const kpis = {
         paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
-        deliverablesProgress: deliverables.length>0 ? (deliverables.filter(d=>d.status==='Approved').length / deliverables.length) : 0,
+        deliverablesProgress: deliverables.length>0
+          ? deliverables.filter(d=>d.status==='Approved').length / deliverables.length
+          : 0,
         milestonesAtRisk: milestonesRisk.length,
         next30,
       };
@@ -233,4 +237,3 @@ Issue: "${data.gateIssue}"`;
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
   }
 };
-LS
