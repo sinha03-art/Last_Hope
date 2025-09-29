@@ -13,16 +13,20 @@ const {
 
 const NOTION_VERSION = '2022-06-28';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+const NOTION_DB_QUERY_URL = (dbId) => `https://api.notion.com/v1/databases/${dbId}/query`;
+const GEMINI_URL = (model, key) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
 
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured.');
-  const url = `{{https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}}}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  const res = await fetch(url, {
+  const res = await fetch(GEMINI_URL(GEMINI_MODEL, GEMINI_API_KEY), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }]}] }),
   });
-  if (!res.ok) throw new Error(`Gemini API responded with status: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(()=>'');
+    throw new Error(`Gemini ${res.status}: ${text.slice(0,300)}`);
+  }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
@@ -32,7 +36,7 @@ async function queryNotionDB(databaseId, filter, sorts) {
   if (filter && Object.keys(filter).length > 0) body.filter = filter;
   if (sorts && sorts.length > 0) body.sorts = sorts;
 
-  const res = await fetch(`{{https://api.notion.com/v1/databases/${databaseId}}}/query`, {
+  const res = await fetch(NOTION_DB_QUERY_URL(databaseId), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${NOTION_API_KEY}`,
@@ -42,10 +46,9 @@ async function queryNotionDB(databaseId, filter, sorts) {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    let errorBody = {};
-    try { errorBody = await res.json(); } catch {}
-    console.error(`Notion API Error for DB ${databaseId}:`, errorBody);
-    throw new Error(`Notion API responded with status: ${res.status}. Message: ${errorBody?.message ?? 'Unknown error'}`);
+    const text = await res.text().catch(()=> '');
+    console.error(`Notion error for DB ${databaseId}: ${res.status} ${text}`);
+    throw new Error(`Notion ${res.status}`);
   }
   return res.json();
 }
@@ -64,7 +67,13 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       let type, data;
       try { ({ type, data } = JSON.parse(event.body || '{}')); }
-      catch { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
+      catch {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+      }
+
+      if (type !== 'summary' && type !== 'suggestion') {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
+      }
 
       let prompt = '';
       if (type === 'summary') {
@@ -78,14 +87,12 @@ ${kpiText}
 
 Key Milestones:
 ${milestonesText}`;
-      } else if (type === 'suggestion') {
+      } else {
         prompt = `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.
 
 Milestone: "${data.title}"
 Financial: ${data.indicator}
 Issue: "${data.gateIssue}"`;
-      } else {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request type' }) };
       }
 
       const text = await callGemini(prompt);
@@ -93,8 +100,11 @@ Issue: "${data.gateIssue}"`;
     }
 
     if (event.httpMethod === 'GET') {
-      if (!MILESTONES_DB_ID || !DELIVERABLES_DB_ID || !PAYMENTS_DB_ID || !CONFIG_DB_ID) {
-        throw new Error('Configuration error: One or more database IDs are not set in environment variables.');
+      // Basic config guardrails
+      const missing = ['MILESTONES_DB_ID','DELIVERABLES_DB_ID','PAYMENTS_DB_ID','CONFIG_DB_ID','NOTION_API_KEY']
+        .filter(k => !process.env[k]);
+      if (missing.length) {
+        return { statusCode: 500, headers, body: JSON.stringify({ error: 'Missing environment variables', details: missing }) };
       }
 
       const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
@@ -114,7 +124,6 @@ Issue: "${data.gateIssue}"`;
         url: p.url,
       }));
 
-      // DELIVERABLES: Owner mapping enabled
       const deliverables = (deliverablesData.results||[]).map(p => ({
         id: p.id,
         title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? 'Untitled',
@@ -224,3 +233,4 @@ Issue: "${data.gateIssue}"`;
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
   }
 };
+LS
