@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Project Dashboard</title>
 <!-- Favicon -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='https://www.w3.org/2000/svg'' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏠%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E">
 <!-- Fonts + Tailwind -->
-<link rel="preconnect" href="https://fonts.googleapis.com/">
-<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com/"></script>
+<script src="https://cdn.tailwindcss.com"></script>
 <!-- Chart.js (UMD) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <style>
-:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
+:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8eb;}
 .dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
 html,body{height:100%}
 body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--ink);}
@@ -24,20 +24,20 @@ body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
 .top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
 .kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
 .card{background:var(--panel)}
-/ Chart area /
+/* Chart area */
 #cashflowBox { height: 220px; }
-/ Payable / Blocked badges and reason lines /
+/* Payable / Blocked badges and reason lines */
 .badge { display:inline-block; font-size:.65rem; font-weight:700; line-height:1; padding:.2rem .45rem; border-radius:999px; }
-.badge-ok { background:#d1fae5; color:#065f46 }     / Payable /
-.badge-warn { background:#fde68a; color:#92400e }   / Upcoming blocked /
-.badge-stop { background:#fee2e2; color:#991b1b }   / Overdue blocked /
+.badge-ok { background:#d1fae5; color:#065f46 }     /* Payable */
+.badge-warn { background:#fde68a; color:#92400e }   /* Upcoming blocked */
+.badge-stop { background:#fee2e2; color:#991b1b }   /* Overdue blocked */
 .reason { display:block; font-size:.72rem; color:#475569; margin-top:.15rem; }
-/ GO / NO-GO styles /
+/* GO / NO-GO styles */
 .gochip { background:#d1fae5; color:#065f46 }
 .nogochip { background:#fee2e2; color:#991b1b }
 .gocard { background:#ecfdf5 }
 .nogocard { background:#fef2f2 }
-/ Sidebar video wrapper (16:9) /
+/* Sidebar video wrapper (16:9) */
 .sidebar-video { position:relative; width:100%; overflow:hidden; border-radius:.5rem; margin-bottom:.75rem; padding-top:56.25%;}
 .sidebar-video iframe { position:absolute; inset:0; width:100%; height:100%; display:block; }
 </style>
@@ -74,11 +74,11 @@ loading="lazy"></iframe>
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Dosier</a></li>
 <li class="nav-sep">
 <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="/deliverables.html">
-Gate DeliverablesNew
+Gate Deliverables<span class="pill ml-2">New</span>
 </a>
 </li>
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Project Stage</a></li>
-<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">MediaNew</a></li>
+<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Media<span class="pill ml-2">New</span></a></li>
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Tasks</a></li>
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Forms</a></li>
 </ul>
@@ -103,7 +103,7 @@ Gate DeliverablesNew
 <p id="goNoGoMsg" class="text-lg font-bold">Checking…</p>
 <p id="goNoGoReason" class="text-xs text-[var(--muted)] mt-1"></p>
 </div>
-—
+<div id="goNoGoChip" class="px-3 py-1 text-xs font-black rounded-full"></div>
 </div>
 </section>
 <main class="p-6 space-y-6">
@@ -186,22 +186,33 @@ const btn = document.getElementById('themeToggle');
 function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
 applyTheme(localStorage.getItem('theme') || 'light');
 btn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
+
 // HELPERS
 const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
 const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
 let dataCache = null;
 function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
+
 // --- GO / NO-GO evaluation ---
 function renderGoNoGo(a){
 const card = document.getElementById('goNoGoCard');
 const chip = document.getElementById('goNoGoChip');
 const msg  = document.getElementById('goNoGoMsg');
 const why  = document.getElementById('goNoGoReason');
+
+// Ensure chip element exists before trying to modify it
+if (!chip) {
+console.error("Error: #goNoGoChip element not found.");
+return;
+}
+
 const hasPreBlock = (list=[]) => list.some(p =>
 Array.isArray(p.blockedReasons) &&
 p.blockedReasons.some(r => r.toLowerCase().includes('pre‑construction'))
 );
+
 const preBlocked = hasPreBlock(a.paymentsOverdue||[]) || hasPreBlock(a.paymentsUpcoming||[]);
+
 if (preBlocked){
 card.classList.add('nogocard'); card.classList.remove('gocard');
 chip.className = 'nogochip px-3 py-1 text-xs font-black rounded-full';
@@ -216,6 +227,7 @@ msg.textContent = 'Pre‑construction prerequisites satisfied';
 why.textContent = 'You can proceed with scheduled work and pay Payable items only.';
 }
 }
+
 // RENDERERS
 function renderKPIs(k){
 document.getElementById('kpiPaidVsBudget').textContent = (((k.paidVsBudget||0)*100).toFixed(1))+'%';
@@ -224,6 +236,7 @@ document.getElementById('kpiRisk').textContent = (k.milestonesAtRisk||0);
 document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
 document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
 }
+
 function renderAlerts(a){
 const overdue = document.getElementById('overdueList'); overdue.innerHTML='';
 (a.paymentsOverdue||[]).slice(0,8).forEach(p=>{
@@ -232,21 +245,23 @@ const reasons = Array.isArray(p.blockedReasons) ? p.blockedReasons : [];
 const badgeClass = blocked ? 'badge badge-stop' : 'badge badge-ok';
 const badgeText = blocked ? 'Blocked' : 'Payable';
 const reasonText = blocked && reasons.length ? reasons[0] : '';
-const reasonTitle = reasons.length ? reasons.join(' • ') : '';
+const reasonTitle = reasons.length ? reasons.join(' • ') : ''; // Tooltip for all reasons
+
 overdue.appendChild(li(`
 <div class="min-w-0 flex-1">
 <a href="${p.url}" target="_blank"
 class="truncate underline decoration-slate-300 hover:decoration-rose-400"
 title="${reasonTitle}">${p.title}</a>
-${badgeText}
-${reasonText ? <span class="reason" title="${reasonTitle}">${reasonText}</span> : }
+<span class="${badgeClass}">${badgeText}</span>
+${reasonText ? `<span class="reason" title="${reasonTitle}">${reasonText}</span>` : ''}
 </div>
 <div class="shrink-0 text-right">
-${fmtMYR(p.amount)}
-${fmtDate(p.dueDate)}
+${fmtMYR(p.amount)}<br>
+<span class="text-[var(--muted)] text-xs">${fmtDate(p.dueDate)}</span>
 </div>
 `));
 });
+
 const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
 (a.paymentsUpcoming||[]).slice(0,8).forEach(p=>{
 const blocked = p.payable === false;
@@ -255,49 +270,57 @@ const badgeClass = blocked ? 'badge badge-warn' : 'badge badge-ok';
 const badgeText = blocked ? 'Blocked' : 'Payable';
 const reasonText = blocked && reasons.length ? reasons[0] : '';
 const reasonTitle = reasons.length ? reasons.join(' • ') : '';
+
 upcoming.appendChild(li(`
 <div class="min-w-0 flex-1">
 <a href="${p.url}" target="_blank"
 class="truncate underline decoration-slate-300 hover:decoration-rose-400"
 title="${reasonTitle}">${p.title}</a>
-${badgeText}
-${reasonText ? <span class="reason" title="${reasonTitle}">${reasonText}</span> : }
+<span class="${badgeClass}">${badgeText}</span>
+${reasonText ? `<span class="reason" title="${reasonTitle}">${reasonText}</span>` : ''}
 </div>
 <div class="shrink-0 text-right">
-${fmtMYR(p.amount)}
-${fmtDate(p.dueDate)}
+${fmtMYR(p.amount)}<br>
+<span class="text-[var(--muted)] text-xs">${fmtDate(p.dueDate)}</span>
 </div>
 `));
 });
+
 const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
 (a.deliverablesIssues||[]).slice(0,8).forEach(d=>{
 deliv.appendChild(li(`
 <a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a>
-${d.status}
+<span class="pill ml-2 ${d.status === 'Overdue' ? 'bg-red-500' : 'bg-orange-500'}">${d.status}</span>
 `));
 });
+
 const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
 (a.milestonesRisk||[]).slice(0,8).forEach(m=>{
 risk.appendChild(li(`
 <a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a>
-${m.riskStatus}
+<span class="pill ml-2 ${m.riskStatus === 'High' ? 'bg-red-500' : 'bg-orange-500'}">${m.riskStatus}</span>
 `));
 });
 }
+
 let cashflowChart;
 function renderCashflow(cf) {
 const el = document.getElementById('cashflowChart');
 if (!el) return;
 const data = Array.isArray(cf) ? cf.slice() : [];
-if (cashflowChart) { try { cashflowChart.destroy(); } catch(e){} cashflowChart = null; }
+
+if (cashflowChart) { try { cashflowChart.destroy(); } catch(e){ console.error("Error destroying chart:", e); } cashflowChart = null; }
+
 if (data.length === 0) {
 const ctx = el.getContext('2d');
 if (ctx) ctx.clearRect(0, 0, el.width, el.height);
 return;
 }
+
 const labels = data.map(r => r.ym);
 const scheduled = data.map(r => r.scheduled || 0);
 const paid = data.map(r => r.paid || 0);
+
 cashflowChart = new Chart(el.getContext('2d'), {
 type: 'bar',
 data: {
@@ -318,46 +341,52 @@ y: { beginAtZero: true, grid: { color: '#e5e7eb' } }
 }
 });
 }
+
 function renderTopVendors(list){
 const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML = '';
 (list||[]).forEach(r => ul.insertAdjacentHTML('beforeend',
-<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>));
+`<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
 }
+
 function renderGates(gates){
 const wrap = document.getElementById('gatesWrap'); wrap.innerHTML='';
 (gates||[]).forEach(g=>{
-const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
+const pct = g.required > 0 ? Math.round((g.approved / g.required) * 100) : 0;
 const card = document.createElement('div');
 card.className='rounded border border-slate-200 p-4';
 card.innerHTML = `
 <div class="flex items-center justify-between">
 <p class="font-bold">${g.id}</p>
-0?'text-rose-600':'text-emerald-600'} font-bold">${g.blocked>0?'Blocked':'Clear'}
+<span class="pill ${g.blocked > 0 ? 'bg-red-500' : 'bg-emerald-500'}">${g.blocked > 0 ? 'Blocked' : 'Clear'}</span>
 </div>
 <div class="mt-3">
 <div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
 <div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
 </div>
 <p class="mt-2 text-xs text-[var(--muted)]">
-Required ${g.required}
-Approved ${g.approved}
-Submitted ${g.submitted ?? 0}
-Blocked ${g.blocked}
-Milestones complete ${g.milestonesComplete}
+Required: ${g.required}<br>
+Approved: ${g.approved}<br>
+Submitted: ${g.submitted ?? 0}<br>
+Blocked: ${g.blocked}<br>
+Milestones complete: ${g.milestonesComplete}
 </p>
 ${typeof g.gateApprovalRate === 'number' ? `
 <p class="mt-1 text-[10px] text-[var(--muted)]">
-Approval rate ${(g.gateApprovalRate*100).toFixed(0)}%
-Submission rate ${(g.gateSubmissionRate*100).toFixed(0)}%
-</p> : `}
+Approval rate: ${(g.gateApprovalRate*100).toFixed(0)}%<br>
+Submission rate: ${(g.gateSubmissionRate*100).toFixed(0)}%
+</p>` : ''}
 </div>`;
 wrap.appendChild(card);
 });
 }
+
 // STATUS + DATA FLOW
 const statusEl = document.getElementById('status');
 async function autoSummary(){
-if (!dataCache) return;
+if (!dataCache) {
+document.getElementById('summaryOut').textContent = 'No data available for summary.';
+return;
+}
 try {
 const resp = await fetch('/.netlify/functions/proxy', {
 method:'POST',
@@ -365,16 +394,18 @@ headers:{'Content-Type':'application/json'},
 body: JSON.stringify({ type:'summary', data: dataCache })
 });
 const out = await resp.json().catch(()=>({}));
-document.getElementById('summaryOut').textContent = out.text || 'No response.';
+document.getElementById('summaryOut').textContent = out.text || 'No response from AI summary service.';
 } catch (err) {
-document.getElementById('summaryOut').textContent = 'AI summary unavailable.';
+document.getElementById('summaryOut').textContent = `AI summary unavailable: ${err.message}`;
+console.error(err);
 }
 }
+
 async function loadData(){
 statusEl.textContent = 'Loading…';
 try {
 const r = await fetch('/.netlify/functions/proxy', { headers:{'Accept':'application/json'} });
-if (!r.ok) throw new Error(HTTP ${r.status});
+if (!r.ok) throw new Error(`HTTP ${r.status}`);
 dataCache = await r.json();
 renderKPIs(dataCache.kpis || {});
 renderAlerts(dataCache.alerts || { paymentsOverdue: [], paymentsUpcoming: [], deliverablesIssues: [], milestonesRisk: [] });
@@ -384,11 +415,13 @@ renderGates(dataCache.gates || []);
 renderTopVendors(dataCache.topVendors || []);
 statusEl.textContent = '';
 } catch (err) {
-statusEl.textContent = Failed to load data: ${err.message};
+statusEl.textContent = `Failed to load data: ${err.message}`;
 console.error(err);
 }
 }
+
 document.getElementById('genSummary').addEventListener('click', autoSummary);
+
 // Boot
 loadData().then(autoSummary).catch(err=>console.error(err));
 </script>
