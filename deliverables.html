@@ -240,24 +240,32 @@
     });
   }
 
-  async function load(){
-    const res = await fetch('/.netlify/functions/proxy');
-    if (!res.ok) throw new Error('Failed to load data');
-    dataCache = await res.json();
+async function load(){
+  const res = await fetch('/.netlify/functions/proxy');
+  if (!res.ok) throw new Error('Failed to load data');
+  dataCache = await res.json();
 
-    const gates = Array.from(new Set((dataCache.deliverables||[]).map(d => d.gate || 'Uncategorized'))).sort();
-    const sel = document.getElementById('gateFilter');
-    gates.forEach(g => sel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
+  // Build gate options
+  const gates = Array.from(new Set((dataCache.deliverables || []).map(d => d.gate || 'Uncategorized'))).sort();
+  const sel = document.getElementById('gateFilter');
+  sel.innerHTML = `<option value="">All gates</option>`;
+  gates.forEach(g => sel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
 
-    document.querySelectorAll('#ownerChips [data-owner]').forEach(btn=>{
-      btn.addEventListener('click', ()=> setOwnerFilter(btn.dataset.owner));
-    });
+  // Owner chips
+  document.querySelectorAll('#ownerChips [data-owner]').forEach(btn=>{
+    btn.addEventListener('click', ()=> setOwnerFilter(btn.dataset.owner));
+  });
 
-    const urlOwner = new URLSearchParams(location.search).get('owner');
-    if (urlOwner) setOwnerFilter(urlOwner);
+  // NEW: preselect gate from URL if present
+  const urlGate = new URLSearchParams(location.search).get('gate');
+  if (urlGate && gates.includes(urlGate)) { sel.value = urlGate; }
 
-    render();
-  }
+  // Existing: preselect owner from URL if present
+  const urlOwner = new URLSearchParams(location.search).get('owner');
+  if (urlOwner) setOwnerFilter(urlOwner);
+
+  render();
+}
 
   document.getElementById('q').addEventListener('input', render);
   document.getElementById('gateFilter').addEventListener('change', render);

@@ -349,35 +349,70 @@ const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML 
 }
 
 function renderGates(gates){
-const wrap = document.getElementById('gatesWrap'); wrap.innerHTML='';
-(gates||[]).forEach(g=>{
-const pct = g.required > 0 ? Math.round((g.approved / g.required) * 100) : 0;
-const card = document.createElement('div');
-card.className='rounded border border-slate-200 p-4';
-card.innerHTML = `
-<div class="flex items-center justify-between">
-<p class="font-bold">${g.id}</p>
-<span class="pill ${g.blocked > 0 ? 'bg-red-500' : 'bg-emerald-500'}">${g.blocked > 0 ? 'Blocked' : 'Clear'}</span>
-</div>
-<div class="mt-3">
-<div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
-<div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
-</div>
-<p class="mt-2 text-xs text-[var(--muted)]">
-Required: ${g.required}<br>
-Approved: ${g.approved}<br>
-Submitted: ${g.submitted ?? 0}<br>
-Blocked: ${g.blocked}<br>
-Milestones complete: ${g.milestonesComplete}
-</p>
-${typeof g.gateApprovalRate === 'number' ? `
-<p class="mt-1 text-[10px] text-[var(--muted)]">
-Approval rate: ${(g.gateApprovalRate*100).toFixed(0)}%<br>
-Submission rate: ${(g.gateSubmissionRate*100).toFixed(0)}%
-</p>` : ''}
-</div>`;
-wrap.appendChild(card);
-});
+  const wrap = document.getElementById('gatesWrap'); 
+  wrap.innerHTML='';
+
+  // Build an index of Missing deliverables by gate from the live payload
+  const missingByGate = {};
+  (dataCache?.deliverables || []).forEach(d => {
+    if (d.status === 'Missing') {
+      const g = d.gate || 'Uncategorized';
+      (missingByGate[g] ||= []).push(d);
+    }
+  });
+
+  (gates||[]).forEach(g=>{
+    const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
+
+    // Top 3 Missing for this gate (titles only)
+    const topMissing = (missingByGate[g.id] || []).slice(0,3).map(d => `• ${d.title}`).join('<br>');
+
+    // Links
+    const viewHref = `/deliverables.html?gate=${encodeURIComponent(g.id)}`;
+    const uploadHref = `https://www.notion.so/46f232d47c3b4d5da87d5a121c287497`;
+
+    const card = document.createElement('div');
+    card.className='rounded border border-slate-200 p-4';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <p class="font-bold">${g.id}</p>
+        <span class="text-xs ${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">
+          ${g.blocked>0?'Blocked':'Clear'}
+        </span>
+      </div>
+
+      <div class="mt-3">
+        <div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
+          <div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
+        </div>
+
+        <p class="mt-2 text-xs text-[var(--muted)]">
+          Required ${g.required}
+          • Approved ${g.approved}
+          • Submitted ${g.submitted ?? 0}
+          • Missing ${g.blocked}
+          • Milestones complete ${g.milestonesComplete}
+        </p>
+
+        ${typeof g.gateApprovalRate === 'number' ? `
+        <p class="mt-1 text-[10px] text-[var(--muted)]">
+          Approval rate ${(g.gateApprovalRate*100).toFixed(0)}%
+          • Submission rate ${(g.gateSubmissionRate*100).toFixed(0)}%
+        </p>` : ``}
+
+        ${topMissing ? `
+        <div class="mt-2 text-[11px] text-slate-600">
+          <span class="font-semibold">Top Missing:</span><br>${topMissing}
+        </div>` : ``}
+
+        <div class="mt-3 flex items-center gap-3">
+          <a href="${viewHref}" class="text-xs underline decoration-slate-300 hover:decoration-rose-400">View docs</a>
+          <span class="text-slate-400">•</span>
+          <a href="${uploadHref}" target="_blank" class="text-xs underline decoration-slate-300 hover:decoration-rose-400">Upload</a>
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
 }
 
 // STATUS + DATA FLOW
