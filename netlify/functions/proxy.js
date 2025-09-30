@@ -258,3 +258,77 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
   }
 };
+// ... (existing code above unchanged)
+
+exports.handler = async (event) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers };
+
+  try {
+    if (event.httpMethod === 'GET') {
+      // ... (existing GET code up to configData retrieval)
+
+      // Load hard preconstruction prerequisites from config (from Notion or local config)
+      const preconKey = "preconstruction_prerequisites";
+      let preconList = [];
+      if (config[preconKey]) {
+        try {
+          preconList = JSON.parse(config[preconKey]);
+        } catch {
+          // Fallback if config value is just a comma-separated string
+          preconList = String(config[preconKey]).split(',').map(s => s.trim());
+        }
+      } else {
+        preconList = []; // default: empty, or optionally hardcode keys
+      }
+
+      // Find approved status for each prerequisite in deliverables
+      const approvedSet = new Set(
+        deliverables.filter(d => d.status === "Approved").map(d => d.title)
+      );
+      const missingPrecons = preconList.filter(req => !approvedSet.has(req));
+
+      // If any preconstruction prerequisites are not approved, block payments and milestones
+      let paymentsBlocked = payments;
+      let milestonesBlocked = milestones;
+      let blockReason = null;
+      if (missingPrecons.length > 0) {
+        // Optionally, you may want to hide/block only "construction" milestones
+        paymentsBlocked = [];   // or filter(payments, ...)
+        milestonesBlocked = []; // or filter(milestones, ...)
+        blockReason = `Pre-construction prerequisite(s) not approved: ${missingPrecons.join(', ')}`;
+      }
+
+      // ... (rest of existing code, but return blocked/empty payments & milestones if blocked)
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          milestones: milestonesBlocked,
+          deliverables,
+          payments: paymentsBlocked,
+          kpis,
+          alerts,
+          cashflow,
+          gates,
+          topVendors,
+          config,
+          preconstruction: {
+            prerequisites: preconList,
+            missing: missingPrecons,
+            blockReason
+          }
+        })
+      };
+    }
+
+    // ... (rest of your proxy.js unchanged)
+  } catch (error) {
+    console.error('Server Error:', error);
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
+  }
+};
