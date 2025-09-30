@@ -24,6 +24,7 @@
 	.top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
 	.kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
 	.card{background:var(--panel)}
+
 	/* Chart area */
 	#cashflowBox { height: 220px; }
 
@@ -33,6 +34,12 @@
 	.badge-warn { background:#fde68a; color:#92400e }   /* Upcoming blocked */
 	.badge-stop { background:#fee2e2; color:#991b1b }   /* Overdue blocked */
 	.reason { display:block; font-size:.72rem; color:#475569; margin-top:.15rem; }
+
+	/* GO / NO-GO styles */
+	.gochip { background:#d1fae5; color:#065f46 }
+	.nogochip { background:#fee2e2; color:#991b1b }
+	.gocard { background:#ecfdf5 }
+	.nogocard { background:#fef2f2 }
 	</style>
 </head>
 <body>
@@ -75,12 +82,23 @@
 				</div>
 			</header>
 
+			<!-- GO / NO-GO Banner -->
+			<section id="goNoGo" class="mx-6 mt-4">
+				<div id="goNoGoCard" class="rounded border border-slate-200 p-4 flex items-center justify-between">
+					<div>
+						<p class="text-xs uppercase text-[var(--muted)]">Pre‑construction readiness</p>
+						<p id="goNoGoMsg" class="text-lg font-bold">Checking…</p>
+						<p id="goNoGoReason" class="text-xs text-[var(--muted)] mt-1"></p>
+					</div>
+					<span id="goNoGoChip" class="px-3 py-1 text-xs font-black rounded-full">—</span>
+				</div>
+			</section>
+
 			<main class="p-6 space-y-6">
 				<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 					<div class="kpi">
 						<p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p>
 						<p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p>
-						<!-- Optional doughnut: <canvas id="kpiPaidChart" height="80" style="width:100%;"></canvas> -->
 					</div>
 
 					<div class="kpi">
@@ -91,7 +109,6 @@
 					<div class="kpi">
 						<p class="text-xs uppercase text-[var(--muted)]">Milestones At Risk</p>
 						<p id="kpiRisk" class="text-3xl font-black">0</p>
-						<!-- Optional sparkline: <canvas id="riskSpark" height="40" style="width:100%;"></canvas> -->
 					</div>
 
 					<div class="kpi">
@@ -172,14 +189,41 @@
 	const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
 
 	let dataCache = null;
-
 	function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
+
+	// --- GO / NO-GO evaluation ---
+	function renderGoNoGo(a){
+		const card = document.getElementById('goNoGoCard');
+		const chip = document.getElementById('goNoGoChip');
+		const msg  = document.getElementById('goNoGoMsg');
+		const why  = document.getElementById('goNoGoReason');
+
+		const hasPreBlock = (list=[]) => list.some(p =>
+			Array.isArray(p.blockedReasons) &&
+			p.blockedReasons.some(r => r.toLowerCase().includes('pre‑construction'))
+		);
+		const preBlocked = hasPreBlock(a.paymentsOverdue||[]) || hasPreBlock(a.paymentsUpcoming||[]);
+
+		if (preBlocked){
+			card.classList.add('nogocard'); card.classList.remove('gocard');
+			chip.className = 'nogochip px-3 py-1 text-xs font-black rounded-full';
+			chip.textContent = 'NO‑GO';
+			msg.textContent = 'Pre‑construction prerequisites not fully approved';
+			why.textContent = 'Approve all mandatory items before work or payment proceeds.';
+		} else {
+			card.classList.add('gocard'); card.classList.remove('nogocard');
+			chip.className = 'gochip px-3 py-1 text-xs font-black rounded-full';
+			chip.textContent = 'GO';
+			msg.textContent = 'Pre‑construction prerequisites satisfied';
+			why.textContent = 'You can proceed with scheduled work and pay Payable items only.';
+		}
+	}
 
 	// RENDERERS
 	function renderKPIs(k){
 		document.getElementById('kpiPaidVsBudget').textContent = (((k.paidVsBudget||0)*100).toFixed(1))+'%';
 		document.getElementById('kpiDeliverables').textContent = (((k.deliverablesProgress||0)*100).toFixed(0))+'%';
-		document.getElementById('kpiRisk').textContent = k.milestonesAtRisk||0;
+		document.getElementById('kpiRisk').textContent = (k.milestonesAtRisk||0);
 		document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
 		document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
 	}
@@ -351,6 +395,7 @@
 
 			renderKPIs(dataCache.kpis || {});
 			renderAlerts(dataCache.alerts || { paymentsOverdue: [], paymentsUpcoming: [], deliverablesIssues: [], milestonesRisk: [] });
+			renderGoNoGo(dataCache.alerts || {});
 			renderCashflow(dataCache.cashflow || []);
 			renderGates(dataCache.gates || []);
 			renderTopVendors(dataCache.topVendors || []);
