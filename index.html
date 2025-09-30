@@ -363,13 +363,10 @@ function renderGates(gates){
 
   (gates||[]).forEach(g=>{
     const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
-
-    // Top 3 Missing for this gate (titles only)
     const topMissing = (missingByGate[g.id] || []).slice(0,3).map(d => `• ${d.title}`).join('<br>');
 
-    // Links
     const viewHref = `/deliverables.html?gate=${encodeURIComponent(g.id)}`;
-    const uploadHref = `https://www.notion.so/46f232d47c3b4d5da87d5a121c287497`;
+    const uploadHref = `https://www.notion.so/46f232d47c3b4d5da87d5a121c287497`; // Public Designer Submission Portal
 
     const card = document.createElement('div');
     card.className='rounded border border-slate-200 p-4';
