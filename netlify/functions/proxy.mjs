@@ -1,6 +1,6 @@
 /**
- * JOOBIN Renovation Hub Proxy v6.3.0
- * Returns dashboard-compatible field names
+ * JOOBIN Renovation Hub Proxy v6.3.1
+ * Fixed: Notion API 400 errors
  */
 
 const {
@@ -10,7 +10,6 @@ const {
   NOTION_ACTUALS_DB_ID,
   MILESTONES_DB_ID,
   DELIVERABLES_DB_ID,
-  PAYMENTS_DB_ID,
   VENDOR_REGISTRY_DB_ID,
   CONFIG_DB_ID,
 } = process.env;
@@ -18,7 +17,6 @@ const {
 const NOTION_VERSION = '2022-06-28';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
-// Notion API helpers
 const notionHeaders = () => ({
   'Authorization': `Bearer ${NOTION_API_KEY}`,
   'Notion-Version': NOTION_VERSION,
@@ -27,17 +25,23 @@ const notionHeaders = () => ({
 
 async function queryNotionDB(dbId, filter = {}) {
   const url = `https://api.notion.com/v1/databases/${dbId}/query`;
-  const body = { filter, page_size: 100 };
+  const body = Object.keys(filter).length > 0 ? { filter, page_size: 100 } : { page_size: 100 };
+  
   const res = await fetch(url, {
     method: 'POST',
     headers: notionHeaders(),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Notion API error: ${res.status}`);
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`Notion API error ${res.status} for DB ${dbId}:`, errorText);
+    throw new Error(`Notion API error: ${res.status}`);
+  }
+  
   return res.json();
 }
 
-// Extract property values
 function getProp(page, propName) {
   const prop = page.properties[propName];
   if (!prop) return null;
@@ -66,22 +70,24 @@ function getProp(page, propName) {
   }
 }
 
-// Vendor trade lookup cache
 const vendorTradeCache = {};
 
 async function getVendorTrade(vendorName) {
   if (vendorTradeCache[vendorName]) return vendorTradeCache[vendorName];
   
   try {
-    const result = await queryNotionDB(VENDOR_REGISTRY_DB_ID, {
-      property: 'Company_Name',
-      title: { equals: vendorName }
+    // Query all vendors without filter to avoid syntax issues
+    const result = await queryNotionDB(VENDOR_REGISTRY_DB_ID);
+    
+    const vendor = result.results.find(page => {
+      const name = getProp(page, 'Company_Name') || getProp(page, 'Company Name');
+      return name === vendorName;
     });
     
-    if (result.results.length > 0) {
-      const trade = getProp(result.results[0], 'Trade Specialization');
-      vendorTradeCache[vendorName] = trade || '—';
-      return vendorTradeCache[vendorName];
+    if (vendor) {
+      const trade = getProp(vendor, 'Trade Specialization') || getProp(vendor, 'Trade_Specialization') || '—';
+      vendorTradeCache[vendorName] = trade;
+      return trade;
     }
   } catch (err) {
     console.error(`Vendor trade lookup failed for ${vendorName}:`, err);
@@ -91,162 +97,168 @@ async function getVendorTrade(vendorName) {
   return '—';
 }
 
-// Main GET handler
 async function handleGet() {
-  // Query all databases in parallel
-  const [budgetData, actualsData, milestonesData, deliverablesData, configData] = 
-    await Promise.all([
-      queryNotionDB(NOTION_BUDGET_DB_ID),
-      queryNotionDB(NOTION_ACTUALS_DB_ID),
-      queryNotionDB(MILESTONES_DB_ID),
-      queryNotionDB(DELIVERABLES_DB_ID),
-      queryNotionDB(CONFIG_DB_ID),
-    ]);
+  console.log('Starting data fetch from Notion...');
+  
+  try {
+    const [budgetData, actualsData, milestonesData, deliverablesData, configData] = 
+      await Promise.all([
+        queryNotionDB(NOTION_BUDGET_DB_ID),
+        queryNotionDB(NOTION_ACTUALS_DB_ID),
+        queryNotionDB(MILESTONES_DB_ID),
+        queryNotionDB(DELIVERABLES_DB_ID),
+        queryNotionDB(CONFIG_DB_ID),
+      ]);
 
-  // Calculate budget from Notion_Budget (sum of Subtotal formula)
-  const budgetMYR = budgetData.results.reduce((sum, page) => {
-    return sum + (getProp(page, 'Subtotal (Formula)') || 0);
-  }, 0);
+    console.log(`Fetched: ${budgetData.results.length} budget, ${actualsData.results.length} actuals, ${deliverablesData.results.length} deliverables`);
 
-  // Calculate paid from Notion_Actuals (sum where status = "Paid")
-  const paidMYR = actualsData.results.reduce((sum, page) => {
-    const status = getProp(page, 'Status');
-    const amount = getProp(page, 'Paid (MYR)') || 0;
-    return status === 'Paid' ? sum + amount : sum;
-  }, 0);
+    // Budget calculation
+    const budgetMYR = budgetData.results.reduce((sum, page) => {
+      return sum + (getProp(page, 'Subtotal (Formula)') || getProp(page, 'Subtotal') || 0);
+    }, 0);
 
-  const remainingMYR = budgetMYR - paidMYR;
-
-  // Deliverables counts
-  const deliverablesTotal = deliverablesData.results.length;
-  const deliverablesApproved = deliverablesData.results.filter(page => {
-    return getProp(page, 'Status') === 'Approved';
-  }).length;
-
-  // Milestones at risk
-  const milestonesAtRisk = milestonesData.results.filter(page => {
-    return getProp(page, 'Risk_Status') === 'At Risk';
-  }).length;
-
-  // KPIs with dashboard-compatible field names
-  const kpis = {
-    budgetMYR: Math.round(budgetMYR),
-    paidMYR: Math.round(paidMYR),
-    remainingMYR: Math.round(remainingMYR),
-    deliverablesApproved,
-    deliverablesTotal,
-    paidVsBudget: budgetMYR > 0 ? paidMYR / budgetMYR : 0,
-    deliverablesProgress: deliverablesTotal > 0 ? deliverablesApproved / deliverablesTotal : 0,
-    milestonesAtRisk,
-  };
-
-  // Gates with renamed fields (id → gate, required → total)
-  const REQUIRED_BY_GATE = configData.results.length > 0 
-    ? JSON.parse(getProp(configData.results[0], 'REQUIRED_BY_GATE') || '{}')
-    : {};
-
-  const gates = Object.keys(REQUIRED_BY_GATE).map(gateName => {
-    const requiredItems = REQUIRED_BY_GATE[gateName] || [];
-    const approved = deliverablesData.results.filter(page => {
-      const title = getProp(page, 'Title');
+    // Paid calculation
+    const paidMYR = actualsData.results.reduce((sum, page) => {
       const status = getProp(page, 'Status');
-      return requiredItems.includes(title) && status === 'Approved';
+      const amount = getProp(page, 'Paid (MYR)') || getProp(page, 'Paid') || 0;
+      return status === 'Paid' ? sum + amount : sum;
+    }, 0);
+
+    const remainingMYR = budgetMYR - paidMYR;
+
+    // Deliverables
+    const deliverablesTotal = deliverablesData.results.length;
+    const deliverablesApproved = deliverablesData.results.filter(page => {
+      return getProp(page, 'Status') === 'Approved';
     }).length;
 
-    return {
-      gate: gateName,  // renamed from 'id'
-      total: requiredItems.length,  // renamed from 'required'
-      approved,
-      gateApprovalRate: requiredItems.length > 0 ? approved / requiredItems.length : 0,
-    };
-  });
+    // Milestones at risk
+    const milestonesAtRisk = milestonesData.results.filter(page => {
+      return getProp(page, 'Risk_Status') === 'At Risk' || getProp(page, 'Risk Status') === 'At Risk';
+    }).length;
 
-  // Top Vendors with renamed fields and trade lookup
-  const vendorPayments = {};
-  actualsData.results.forEach(page => {
-    const vendor = getProp(page, 'Vendor') || 'Unknown';
-    const amount = getProp(page, 'Paid (MYR)') || 0;
-    const status = getProp(page, 'Status');
+    const kpis = {
+      budgetMYR: Math.round(budgetMYR),
+      paidMYR: Math.round(paidMYR),
+      remainingMYR: Math.round(remainingMYR),
+      deliverablesApproved,
+      deliverablesTotal,
+      paidVsBudget: budgetMYR > 0 ? paidMYR / budgetMYR : 0,
+      deliverablesProgress: deliverablesTotal > 0 ? deliverablesApproved / deliverablesTotal : 0,
+      milestonesAtRisk,
+    };
+
+    // Gates
+    const REQUIRED_BY_GATE = configData.results.length > 0 
+      ? JSON.parse(getProp(configData.results[0], 'REQUIRED_BY_GATE') || '{}')
+      : {};
+
+    const gates = Object.keys(REQUIRED_BY_GATE).map(gateName => {
+      const requiredItems = REQUIRED_BY_GATE[gateName] || [];
+      const approved = deliverablesData.results.filter(page => {
+        const title = getProp(page, 'Title');
+        const status = getProp(page, 'Status');
+        return requiredItems.includes(title) && status === 'Approved';
+      }).length;
+
+      return {
+        gate: gateName,
+        total: requiredItems.length,
+        approved,
+        gateApprovalRate: requiredItems.length > 0 ? approved / requiredItems.length : 0,
+      };
+    });
+
+    // Top Vendors
+    const vendorPayments = {};
+    actualsData.results.forEach(page => {
+      const vendor = getProp(page, 'Vendor') || 'Unknown';
+      const amount = getProp(page, 'Paid (MYR)') || getProp(page, 'Paid') || 0;
+      const status = getProp(page, 'Status');
+      
+      if (status === 'Paid') {
+        vendorPayments[vendor] = (vendorPayments[vendor] || 0) + amount;
+      }
+    });
+
+    const topVendorsRaw = Object.entries(vendorPayments)
+      .map(([vendor, amount]) => ({ vendor, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+
+    const topVendors = await Promise.all(
+      topVendorsRaw.map(async (v) => ({
+        name: v.vendor,
+        paid: Math.round(v.amount),
+        trade: await getVendorTrade(v.vendor),
+      }))
+    );
+
+    // Milestones
+    const milestones = milestonesData.results.map(page => {
+      const riskStatus = getProp(page, 'Risk_Status') || getProp(page, 'Risk Status') || '';
+      return {
+        title: getProp(page, 'MilestoneTitle') || getProp(page, 'Title') || '',
+        phase: getProp(page, 'Phase') || '',
+        riskStatus,
+        status: riskStatus,
+        risk: riskStatus === 'At Risk' ? 'High' : 'Low',
+        budgetAllocated: getProp(page, 'Budget_Allocated') || getProp(page, 'Budget Allocated') || 0,
+        actualSpend: getProp(page, 'Actual_Spend') || getProp(page, 'Actual Spend') || 0,
+      };
+    });
+
+    // Payments
+    const payments = actualsData.results.map(page => {
+      const vendor = getProp(page, 'Vendor') || '';
+      return {
+        vendor,
+        recipient: vendor,
+        amount: getProp(page, 'Paid (MYR)') || getProp(page, 'Paid') || 0,
+        status: getProp(page, 'Status') || '',
+        dueDate: getProp(page, 'Due_Date') || getProp(page, 'Due Date') || getProp(page, 'Paid Date') || null,
+      };
+    });
+
+    // Deliverables
+    const ownerMap = { 
+      solomon: 'Solomon', 
+      harminder: 'Harminder' 
+    };
     
-    if (status === 'Paid') {
-      vendorPayments[vendor] = (vendorPayments[vendor] || 0) + amount;
-    }
-  });
+    const deliverables = deliverablesData.results.map(page => {
+      const rawOwner = (getProp(page, 'Owner') || '').toLowerCase();
+      return {
+        title: getProp(page, 'Title') || '',
+        status: getProp(page, 'Status') || '',
+        gate: getProp(page, 'Gate') || '',
+        owner: ownerMap[rawOwner] || rawOwner || '',
+        submittedDate: getProp(page, 'Submitted_Date') || getProp(page, 'Submitted Date') || null,
+        approvedDate: getProp(page, 'Approved_Date') || getProp(page, 'Approved Date') || null,
+      };
+    });
 
-  const topVendorsRaw = Object.entries(vendorPayments)
-    .map(([vendor, amount]) => ({ vendor, amount }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5);
+    console.log('Data processing complete');
 
-  // Lookup trades in parallel
-  const topVendors = await Promise.all(
-    topVendorsRaw.map(async (v) => ({
-      name: v.vendor,  // renamed from 'vendor'
-      paid: Math.round(v.amount),  // renamed from 'amount'
-      trade: await getVendorTrade(v.vendor),  // NEW field
-    }))
-  );
-
-  // Milestones with status and risk fields
-  const milestones = milestonesData.results.map(page => {
-    const riskStatus = getProp(page, 'Risk_Status') || '';
     return {
-      title: getProp(page, 'MilestoneTitle') || getProp(page, 'Title') || '',
-      phase: getProp(page, 'Phase') || '',
-      riskStatus,  // keep original
-      status: riskStatus,  // NEW field (duplicate for compatibility)
-      risk: riskStatus === 'At Risk' ? 'High' : 'Low',  // NEW field
-      budgetAllocated: getProp(page, 'Budget_Allocated') || 0,
-      actualSpend: getProp(page, 'Actual_Spend') || 0,
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kpis,
+        gates,
+        topVendors,
+        milestones,
+        payments,
+        deliverables,
+        timestamp: new Date().toISOString(),
+      }),
     };
-  });
-
-  // Payments with recipient field
-  const payments = actualsData.results.map(page => {
-    const vendor = getProp(page, 'Vendor') || '';
-    return {
-      vendor,  // keep original
-      recipient: vendor,  // NEW field (duplicate for compatibility)
-      amount: getProp(page, 'Paid (MYR)') || 0,
-      status: getProp(page, 'Status') || '',
-      dueDate: getProp(page, 'Due_Date') || getProp(page, 'Paid Date') || null,
-    };
-  });
-
-  // Deliverables with owner mapping
-  const ownerMap = { 
-    solomon: 'Solomon', 
-    harminder: 'Harminder' 
-  };
-  
-  const deliverables = deliverablesData.results.map(page => {
-    const rawOwner = (getProp(page, 'Owner') || '').toLowerCase();
-    return {
-      title: getProp(page, 'Title') || '',
-      status: getProp(page, 'Status') || '',
-      gate: getProp(page, 'Gate') || '',
-      owner: ownerMap[rawOwner] || rawOwner || '',
-      submittedDate: getProp(page, 'Submitted_Date') || null,
-      approvedDate: getProp(page, 'Approved_Date') || null,
-    };
-  });
-
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      kpis,
-      gates,
-      topVendors,
-      milestones,
-      payments,
-      deliverables,
-      timestamp: new Date().toISOString(),
-    }),
-  };
+  } catch (error) {
+    console.error('GET handler error:', error);
+    throw error;
+  }
 }
 
-// Gemini AI summary (POST)
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
   
@@ -291,7 +303,6 @@ Provide a concise executive summary focusing on budget health, progress, and key
   };
 }
 
-// Main handler
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === 'GET') {
