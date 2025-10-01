@@ -151,21 +151,34 @@
     </div>
   </main>
     <script>
+  // Fetch and render dashboard data
   async function loadDashboard() {
     try {
+      console.log('Fetching data from proxy...');
       const res = await fetch('/.netlify/functions/proxy');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const data = await res.json();
+      console.log('✅ Data loaded successfully:', data);
       
-      console.log('Data loaded:', data);
-      
+      // Render all sections
       renderKPIs(data);
       renderAttentionBoard(data);
       renderProjectStage(data);
       renderTopVendors(data);
+      
     } catch (error) {
-      console.error('Error loading dashboard:', error);
-      document.body.innerHTML = '<div class="p-8 text-red-500 text-center"><h1 class="text-2xl font-bold mb-4">⚠️ Error Loading Dashboard</h1><p>' + error.message + '</p></div>';
+      console.error('❌ Error loading dashboard:', error);
+      document.body.innerHTML = `
+        <div style="padding: 2rem; text-align: center; color: #ef4444;">
+          <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">⚠️ Dashboard Error</h1>
+          <p>${error.message}</p>
+          <p style="margin-top: 1rem; color: #64748b;">Check console for details (F12)</p>
+        </div>
+      `;
     }
   }
   
@@ -176,10 +189,16 @@
     const remaining = totalBudget - paid;
     
     const deliverables = data.deliverables || [];
-    const approved = deliverables.filter(d => d.status === 'Approved').length;
+    const approved = deliverables.filter(d => d && d.status === 'Approved').length;
     const total = deliverables.length;
     
-    const html = `
+    const kpiContainer = document.getElementById('kpis');
+    if (!kpiContainer) {
+      console.warn('⚠️ Element #kpis not found');
+      return;
+    }
+    
+    kpiContainer.innerHTML = `
       <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
         <div class="text-slate-400 text-sm mb-2">Total Budget</div>
         <div class="text-3xl font-bold text-white">RM ${totalBudget.toLocaleString()}</div>
@@ -197,86 +216,172 @@
         <div class="text-3xl font-bold text-white">${approved}/${total}</div>
       </div>
     `;
-    document.getElementById('kpis').innerHTML = html;
+    
+    console.log('✅ KPIs rendered');
   }
   
   function renderAttentionBoard(data) {
     const alerts = data.alerts || {};
     const overdue = alerts.paymentsOverdue || [];
     const deliverables = data.deliverables || [];
-    const pending = deliverables.filter(d => d.status === 'Submitted' || d.status === 'Pending');
+    const pending = deliverables.filter(d => d && (d.status === 'Submitted' || d.status === 'Pending'));
+    
+    const container = document.getElementById('attention-board');
+    if (!container) {
+      console.warn('⚠️ Element #attention-board not found');
+      return;
+    }
     
     let html = '';
     
+    // Pending Verification Section
     if (pending.length > 0) {
-      html += '<div class="mb-6"><h4 class="font-semibold text-cyan-400 mb-3">📥 PENDING VERIFICATION</h4><div class="space-y-2">';
+      html += '<div class="mb-6">';
+      html += '<h4 class="font-semibold text-cyan-400 mb-3">📥 PENDING VERIFICATION</h4>';
+      html += '<div class="space-y-2">';
+      
       pending.forEach(d => {
-        html += `<div class="bg-slate-700 rounded-lg p-4"><div class="font-semibold text-white">${d.title || 'Untitled'}</div><div class="text-sm text-slate-400 mt-1">Gate: ${d.gate || 'N/A'} • Status: ${d.status || 'N/A'}</div></div>`;
+        html += `
+          <div class="bg-slate-700 rounded-lg p-4">
+            <div class="font-semibold text-white">${d.title || 'Untitled'}</div>
+            <div class="text-sm text-slate-400 mt-1">
+              Gate: ${d.gate || 'N/A'} • Status: ${d.status || 'N/A'}
+            </div>
+          </div>
+        `;
       });
+      
       html += '</div></div>';
     }
     
+    // Overdue Payments Section
     if (overdue.length > 0) {
-      html += '<div class="mb-6"><h4 class="font-semibold text-red-400 mb-3">🚨 OVERDUE PAYMENTS</h4><div class="space-y-2">';
+      html += '<div class="mb-6">';
+      html += '<h4 class="font-semibold text-red-400 mb-3">🚨 OVERDUE PAYMENTS</h4>';
+      html += '<div class="space-y-2">';
+      
       overdue.forEach(p => {
         const amount = p.amount || 0;
-        html += `<div class="bg-slate-700 rounded-lg p-4"><div class="flex justify-between items-start"><div><div class="font-semibold text-white">${p.title || 'Untitled'}</div><div class="text-sm text-slate-400 mt-1">${p.vendor || 'Unknown vendor'}</div></div><div class="text-right"><div class="font-bold text-red-400">RM ${amount.toLocaleString()}</div><div class="text-xs text-slate-400 mt-1">Due: ${p.dueDate || 'N/A'}</div></div></div></div>`;
+        html += `
+          <div class="bg-slate-700 rounded-lg p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="font-semibold text-white">${p.title || 'Untitled'}</div>
+                <div class="text-sm text-slate-400 mt-1">${p.vendor || 'Unknown vendor'}</div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-red-400">RM ${amount.toLocaleString()}</div>
+                <div class="text-xs text-slate-400 mt-1">Due: ${p.dueDate || 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+        `;
       });
+      
       html += '</div></div>';
     }
     
     if (html === '') {
-      html = '<div class="text-slate-400 text-center py-8">All clear! No urgent items.</div>';
+      html = '<div class="text-slate-400 text-center py-8">✅ All clear! No urgent items.</div>';
     }
     
-    document.getElementById('attention-board').innerHTML = html;
+    container.innerHTML = html;
+    console.log('✅ Attention Board rendered');
   }
   
   function renderProjectStage(data) {
     const gates = data.gates || [];
     const milestones = data.milestones || [];
     
-    let gateProgress = '';
+    const container = document.getElementById('project-stage');
+    if (!container) {
+      console.warn('⚠️ Element #project-stage not found');
+      return;
+    }
+    
+    // Render Gate Timeline
+    let gateHTML = '';
     gates.forEach(g => {
       const pct = g.required > 0 ? Math.round((g.approved / g.required) * 100) : 0;
-      const status = pct === 100 ? 'progress-complete' : 'progress-active';
-      gateProgress += `<div class="text-center"><div class="progress-circle ${status} mx-auto">${pct}%</div><div class="text-sm mt-2 text-slate-300 font-semibold">${g.id || 'Unknown'}</div></div>`;
+      const statusClass = pct === 100 ? 'progress-complete' : 'progress-active';
+      
+      gateHTML += `
+        <div class="text-center">
+          <div class="progress-circle ${statusClass} mx-auto">${pct}%</div>
+          <div class="text-sm mt-2 text-slate-300 font-semibold">${g.id || 'Unknown'}</div>
+        </div>
+      `;
     });
     
-    let milestoneCards = '';
+    // Render Active Milestones
+    let milestonesHTML = '';
     milestones.slice(0, 3).forEach(m => {
       const statusClass = m.riskStatus === 'At Risk' ? 'status-overdue' : 'status-paid';
-      milestoneCards += `<div class="bg-slate-700 rounded-lg p-4"><div class="font-semibold text-white mb-2">${m.title || 'Untitled'}</div><div class="flex justify-between items-center text-sm"><span class="text-slate-400">${m.phase || 'N/A'}</span><span class="status-badge ${statusClass}">${m.riskStatus || 'Unknown'}</span></div></div>`;
+      
+      milestonesHTML += `
+        <div class="bg-slate-700 rounded-lg p-4">
+          <div class="font-semibold text-white mb-2">${m.title || 'Untitled'}</div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-slate-400">${m.phase || 'N/A'}</span>
+            <span class="status-badge ${statusClass}">${m.riskStatus || 'Unknown'}</span>
+          </div>
+        </div>
+      `;
     });
     
-    const html = `
+    container.innerHTML = `
       <div class="mb-6">
         <h4 class="font-semibold text-cyan-400 mb-4">Gate Timeline</h4>
-        <div class="grid grid-cols-6 gap-4">${gateProgress}</div>
+        <div class="grid grid-cols-6 gap-4">${gateHTML}</div>
       </div>
       <div>
         <h4 class="font-semibold text-cyan-400 mb-4">Active Milestones</h4>
-        <div class="grid grid-cols-3 gap-4">${milestoneCards}</div>
+        <div class="grid grid-cols-3 gap-4">${milestonesHTML}</div>
       </div>
     `;
     
-    document.getElementById('project-stage').innerHTML = html;
+    console.log('✅ Project Stage rendered');
   }
   
   function renderTopVendors(data) {
     const vendors = data.topVendors || [];
     
+    const container = document.getElementById('top-vendors');
+    if (!container) {
+      console.warn('⚠️ Element #top-vendors not found');
+      return;
+    }
+    
     let html = '';
+    
     vendors.slice(0, 5).forEach((v, i) => {
       const amount = v.amount || 0;
-      const vendor = v.vendor || 'Unknown Vendor';
-      const border = i > 0 ? 'border-t border-slate-700' : '';
-      html += `<div class="flex items-center justify-between py-4 ${border}"><div><div class="font-semibold text-white">${vendor}</div><div class="text-sm text-slate-400">Rank #${i + 1}</div></div><div class="text-right"><div class="font-bold text-cyan-400">RM ${amount.toLocaleString()}</div></div></div>`;
+      const vendorName = v.vendor || 'Unknown Vendor';
+      const borderClass = i > 0 ? 'border-t border-slate-700' : '';
+      
+      html += `
+        <div class="flex items-center justify-between py-4 ${borderClass}">
+          <div>
+            <div class="font-semibold text-white">${vendorName}</div>
+            <div class="text-sm text-slate-400">Rank #${i + 1}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-cyan-400">RM ${amount.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
     });
     
-    document.getElementById('top-vendors').innerHTML = html;
+    if (html === '') {
+      html = '<div class="text-slate-400 text-center py-8">No vendor data available</div>';
+    }
+    
+    container.innerHTML = html;
+    console.log('✅ Top Vendors rendered');
   }
   
+  // Start loading dashboard when page loads
+  console.log('🚀 Dashboard initializing...');
   loadDashboard();
 </script>
 </body>
