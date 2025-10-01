@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>JOOBIN Command Center</title>
+  <title>Project Dashboard</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏗️%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,45 +11,29 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root { --bg: #0f1723; --panel: #1a2332; --border: #2a3544; --text: #e5e7eb; --muted: #9ca3af; --brand: #e11d48; --neon: #00ffff; }
+    :root { --bg: #0f1723; --panel: #1a2332; --border: #2a3544; --text: #e5e7eb; --muted: #9ca3af; --brand: #e11d48; }
     html, body { height: 100%; margin: 0; padding: 0; }
     body { font-family: "Lato", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; }
-    .neon-header { color: var(--neon); text-shadow: 0 0 10px var(--neon), 0 0 20px var(--neon); }
-    @keyframes blink { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.3; } }
-    .blink { animation: blink 2s infinite; }
     .metric-value { font-size: 2rem; font-weight: 900; line-height: 1; }
     .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem; }
-    .section-divider { border-top: 1px solid var(--border); margin: 1rem 0; padding-top: 1rem; }
-    .alert-item { padding: 0.5rem 0; font-size: 0.875rem; }
+    .alert-item { border-left: 3px solid var(--brand); padding-left: 0.75rem; margin-bottom: 0.75rem; }
     .vendor-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
     .vendor-row:last-child { border-bottom: none; }
     .badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-weight: 700; }
     .badge-red { background: #fee2e2; color: #991b1b; }
     .badge-yellow { background: #fef3c7; color: #92400e; }
     .badge-green { background: #d1fae5; color: #065f46; }
-    .badge-overdue { background: #991b1b; color: #fee2e2; }
-    .risk-red { color: #ef4444; font-weight: 700; }
-    .gate-step { display: flex; align-items: center; gap: 0.5rem; }
-    .gate-circle { width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.875rem; border: 2px solid; }
-    .gate-complete { background: #065f46; border-color: #10b981; color: #d1fae5; }
-    .gate-current { background: #1e40af; border-color: #3b82f6; color: #dbeafe; box-shadow: 0 0 20px #3b82f6; }
-    .gate-pending { background: var(--panel); border-color: var(--border); color: var(--muted); }
-    .gate-line { height: 2px; flex: 1; background: var(--border); }
-    .gate-line-complete { background: #10b981; }
     #summary { line-height: 1.6; }
     #summary h3 { font-size: 1rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
     #summary ul { margin: 0.5rem 0; padding-left: 1.5rem; }
     #summary li { margin: 0.25rem 0; }
     #loading { text-align: center; padding: 2rem; color: var(--muted); }
-    .dossier { font-size: 0.75rem; line-height: 1.6; }
-    .dossier strong { color: var(--neon); }
-    .dossier h3 { font-size: 0.875rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body class="flex">
   <aside class="w-80 border-r border-gray-700 p-6 overflow-y-auto">
-    <h1 class="text-2xl font-black mb-6 neon-header">JOOBIN</h1>
+    <h1 class="text-2xl font-black mb-6">JOOBIN</h1>
     <nav class="space-y-1 mb-8">
       <a href="/" class="block px-3 py-2 rounded bg-gray-800 font-bold">Dashboard</a>
       <a href="/deliverables.html" class="block px-3 py-2 rounded hover:bg-gray-800">Deliverables</a>
@@ -60,86 +44,26 @@
         <p class="text-sm leading-relaxed">House-4 @ Sri Suria<br>Bukit Rimau, Shah Alam<br>20250602</p>
       </div>
       <div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3">ABOUT</h2>
+        <p class="text-xs leading-relaxed text-gray-400">JOOBIN Renovation Command Center is a full‑stack project control system for residential renovation. Powered by Notion databases, Netlify functions, and Gemini AI.</p>
+      </div>
+      <div>
         <h2 class="text-sm font-bold text-gray-400 mb-3">DEMO</h2>
         <div class="relative" style="padding-top: 56.25%;">
-          <iframe src="https://player.vimeo.com/video/1121406919?badge=0&autopause=0&player_id=0&app_id=58479&autoplay=1&loop=1&muted=1" 
+          <iframe src="https://player.vimeo.com/video/1040002906?badge=0&autopause=0&player_id=0&app_id=58479" 
                   frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write" 
                   class="absolute top-0 left-0 w-full h-full rounded"
                   title="JOOBIN Command Center Demo"></iframe>
         </div>
-      </div>
-      <div>
-        <h2 class="text-sm font-bold text-gray-400 mb-3">DOSSIER</h2>
-        <div class="dossier">
-          <h3>GENERAL WORKS RENOVATION OVERVIEW</h3>
-          <p><strong>Key Additions (Highlighted in Pink – Proposed Plan Sets):</strong></p>
-          <ul class="text-xs space-y-1 ml-4">
-            <li>Construction of <strong>new roof structures</strong> and <strong>RC roof covers</strong></li>
-            <li>Significant <strong>extensions</strong> at the <strong>rear and sides</strong>, including master suite and utility areas</li>
-            <li><strong>Expanded terraces and balconies</strong>, with landscaped integration</li>
-            <li>Introduction of <strong>covered car porch</strong> and redesigned <strong>hardscape layout</strong></li>
-            <li>Multiple <strong>new openings</strong>: timber sliding doors, aluminum-glass windows (W4-W6), and select demolished existing openings</li>
-          </ul>
-          
-          <h3>🏗️ BY LEVEL – SCOPE BREAKDOWN</h3>
-          
-          <p><strong>GROUND FLOOR</strong></p>
-          <p class="text-xs"><strong>Retained:</strong> Guest Room, Dining, Living, Kitchen, and general courtyard layout.</p>
-          <p class="text-xs"><strong>Modified:</strong></p>
-          <ul class="text-xs space-y-1 ml-4">
-            <li><strong>Parents Room</strong> expanded with a new rear wall</li>
-            <li><strong>Laundry Room</strong> added with outdoor drying area</li>
-            <li><strong>New Covered Car Porch</strong> with extended boundary wall</li>
-            <li><strong>Utility/Wet Kitchen</strong> expanded and reconnected</li>
-            <li><strong>Powder Room</strong> relocated and reconfigured</li>
-            <li><strong>Courtyard</strong> opened with integrated landscaping</li>
-          </ul>
-          <p class="text-xs"><strong>Openings:</strong> Timber sliding doors, new W4–W6 windows, demolition of some original openings.</p>
-          
-          <p><strong>FIRST FLOOR</strong></p>
-          <ul class="text-xs space-y-1 ml-4">
-            <li><strong>Master Suite</strong> expanded to include lounge + walk-in</li>
-            <li><strong>Bedroom 1</strong> resized for larger beds</li>
-            <li><strong>Library/Study</strong> added (replaces multipurpose)</li>
-            <li><strong>Balcony/Terrace</strong> widened with landscaping</li>
-            <li><strong>New hallway</strong> connection improves flow</li>
-          </ul>
-          
-          <p><strong>ROOF PLAN</strong></p>
-          <ul class="text-xs space-y-1 ml-4">
-            <li><strong>RC Flat Roof</strong> retained + extended</li>
-            <li><strong>New Roof Terrace</strong> added</li>
-            <li><strong>Solar Panels</strong> confirmed</li>
-            <li><strong>New RC Roof Covers</strong> for additions</li>
-          </ul>
-          
-          <p><strong>ELEVATIONS & SECTIONS</strong></p>
-          <ul class="text-xs space-y-1 ml-4">
-            <li><strong>Front:</strong> Covered porch, feature wall, updated materials</li>
-            <li><strong>Rear:</strong> Balcony, glass upgrades, shading added</li>
-            <li><strong>Sides:</strong> Volume extensions, light/air openings</li>
-            <li><strong>Sections A-A / B-B:</strong> Slab extensions, raised floor levels, roof parapet changes</li>
-          </ul>
-        </div>
-      </div>
-      <div>
-        <h2 class="text-sm font-bold text-gray-400 mb-3">SUBMIT DOCS</h2>
-        <iframe src="" 
-                class="w-full h-96 rounded border border-gray-700" 
-                title="Designer Submission Portal"></iframe>
       </div>
     </div>
   </aside>
   <main class="flex-1 overflow-y-auto p-6">
     <div id="loading">Loading dashboard...</div>
     <div id="app" style="display:none;">
-      <header class="mb-6 flex items-center justify-between">
-        <div>
-          <h2 class="text-3xl font-black neon-header">Project Dashboard</h2>
-          <p class="text-sm text-gray-400 mt-1">Live KPIs, alerts, gate progress, and vendor rankings</p>
-        </div>
-        <a href="" target="_blank" rel="noopener noreferrer"
-           class="px-4 py-2 rounded bg-rose-600 text-white text-sm font-bold hover:bg-rose-700">📤 Upload Deliverable</a>
+      <header class="mb-6">
+        <h2 class="text-3xl font-black">Project Dashboard</h2>
+        <p class="text-sm text-gray-400 mt-1">Live KPIs, alerts, cashflow, and gate progress</p>
       </header>
       <div id="goNoGoBanner" style="display:none;" class="card mb-6 flex items-center justify-between">
         <div>
@@ -148,30 +72,24 @@
         </div>
         <div id="goNoGoChip"></div>
       </div>
-      
-      <div class="card mb-6">
-        <h3 class="text-lg font-bold mb-4 neon-header">📍 PROJECT STAGE</h3>
-        <div id="projectStage"></div>
-      </div>
-      
       <section id="kpis" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></section>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="card">
-          <h3 class="text-lg font-bold mb-4 neon-header blink">🚨 ATTENTION BOARD</h3>
+          <h3 class="text-lg font-bold mb-4">🚨 Attention Board</h3>
           <div id="alerts"></div>
         </div>
         <div class="card">
-          <h3 class="text-lg font-bold mb-4 neon-header">🏆 TOP 5 VENDORS</h3>
+          <h3 class="text-lg font-bold mb-4">🏆 Top 5 Vendors (by spend)</h3>
           <div id="vendors"></div>
         </div>
       </div>
       <div class="card mb-6">
-        <h3 class="text-lg font-bold mb-4 neon-header">🎯 GATE PROGRESS</h3>
-        <div id="gateProgress"></div>
+        <h3 class="text-lg font-bold mb-4">🎯 Gate Progress (Deliverables)</h3>
+        <div id="gates"></div>
       </div>
       <div class="card">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-bold neon-header">🤖 AI SUMMARY</h3>
+          <h3 class="text-lg font-bold">🤖 AI Summary</h3>
           <button id="summarizeBtn" class="px-4 py-2 rounded bg-rose-600 text-white text-sm font-bold hover:bg-rose-700">Generate Summary</button>
         </div>
         <div id="summary" class="text-sm"></div>
@@ -195,11 +113,10 @@
 
     function render() {
       renderGoNoGo();
-      renderProjectStage();
       renderKPIs();
       renderAlerts();
       renderVendors();
-      renderGateProgress();
+      renderGates();
     }
 
     function renderGoNoGo() {
@@ -213,71 +130,6 @@
       chip.innerHTML = goNoGo.decision === 'GO' 
         ? '<span class="badge badge-green">GO</span>' 
         : '<span class="badge badge-red">NO-GO</span>';
-    }
-
-    function renderProjectStage() {
-      const { gates, milestones } = dataCache;
-      const container = document.getElementById('projectStage');
-      if (!gates || gates.length === 0) {
-        container.innerHTML = '<p class="text-sm text-gray-400">No stage data available</p>';
-        return;
-      }
-
-      const gateOrder = ['G1 Concept', 'G2 Schematic', 'G3 Design Development', 'G4 Authority Submission', 'G5 Construction Documentation', 'G6 Design Close‑out'];
-      const sortedGates = gateOrder.map(g => gates.find(gate => gate.gate === g)).filter(Boolean);
-      
-      let currentGateIndex = sortedGates.findIndex(g => g.approved < g.total);
-      if (currentGateIndex === -1) currentGateIndex = sortedGates.length - 1;
-
-      let html = '<div class="flex items-center justify-between mb-6">';
-      sortedGates.forEach((g, i) => {
-        const pct = g.total > 0 ? Math.round((g.approved / g.total) * 100) : 0;
-        const isComplete = pct === 100;
-        const isCurrent = i === currentGateIndex;
-        
-        const circleClass = isComplete ? 'gate-complete' : isCurrent ? 'gate-current' : 'gate-pending';
-        const lineClass = isComplete ? 'gate-line-complete' : 'gate-line';
-        
-        html += `
-          <div class="flex flex-col items-center flex-1">
-            <div class="gate-circle ${circleClass}">${isComplete ? '✓' : `G${i+1}`}</div>
-            <div class="text-xs mt-2 text-center font-bold">${pct}%</div>
-            <div class="text-xs text-gray-400 text-center">${g.gate.replace(/^G\d+\s*/, '')}</div>
-          </div>
-        `;
-        
-        if (i < sortedGates.length - 1) {
-          html += `<div class="gate-line ${lineClass}" style="margin: 0 0.5rem; margin-top: -2rem;"></div>`;
-        }
-      });
-      html += '</div>';
-
-      if (milestones && milestones.length > 0) {
-        const phases = {};
-        milestones.forEach(m => {
-          const phase = m.phase || 'Uncategorized';
-          if (!phases[phase]) phases[phase] = { total: 0, complete: 0, atRisk: 0 };
-          phases[phase].total++;
-          if (m.status === 'Complete') phases[phase].complete++;
-          if (m.status === 'At Risk' || m.risk === 'High') phases[phase].atRisk++;
-        });
-
-        html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">';
-        Object.entries(phases).forEach(([phase, data]) => {
-          const pct = data.total > 0 ? Math.round((data.complete / data.total) * 100) : 0;
-          html += `
-            <div class="p-3 rounded border border-gray-700">
-              <div class="text-sm font-bold mb-2">${phase}</div>
-              <div class="text-2xl font-bold mb-1">${pct}%</div>
-              <div class="text-xs text-gray-400">${data.complete} / ${data.total} milestones</div>
-              ${data.atRisk > 0 ? `<div class="text-xs risk-red mt-1">${data.atRisk} at risk</div>` : ''}
-            </div>
-          `;
-        });
-        html += '</div>';
-      }
-
-      container.innerHTML = html;
     }
 
     function renderKPIs() {
@@ -300,110 +152,18 @@
     }
 
     function renderAlerts() {
-      const { payments, milestones, deliverables } = dataCache;
+      const { alerts } = dataCache;
       const container = document.getElementById('alerts');
-      let html = '';
-
-      const overduePayments = (payments || []).filter(p => {
-        if (!p.dueDate || p.status === 'Paid') return false;
-        return new Date(p.dueDate) < new Date();
-      });
-      if (overduePayments.length > 0) {
-        html += '<div><p class="font-bold text-sm neon-header">OVERDUE PAYMENTS</p>';
-        overduePayments.slice(0, 3).forEach(p => {
-          html += `
-            <div class="alert-item flex justify-between items-center">
-              <div class="flex-1">
-                <span class="font-bold">${p.recipient || p.vendor || 'Unknown'}</span>
-                <span class="text-xs text-gray-400 ml-2">MYR ${(p.amount || 0).toLocaleString()}</span>
-                <span class="text-xs text-gray-400 ml-2">Due: ${p.dueDate || '—'}</span>
-              </div>
-              <span class="badge badge-overdue">OVERDUE</span>
-            </div>
-          `;
-        });
-        html += '</div>';
+      if (!alerts || alerts.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400">No alerts</p>';
+        return;
       }
-
-      const atRiskMilestones = (milestones || []).filter(m => m.status === 'At Risk' || m.risk === 'High');
-      if (atRiskMilestones.length > 0) {
-        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">MILESTONES AT RISK</p>';
-        atRiskMilestones.slice(0, 3).forEach(m => {
-          const riskReason = m.riskReason || m.notes || 'Schedule pressure';
-          const shortRisk = riskReason.split(' ').slice(0, 3).join(' ');
-          html += `
-            <div class="alert-item flex justify-between items-center">
-              <div class="flex-1">
-                <span class="font-bold">${m.title || 'Unknown'}</span>
-                <span class="text-xs risk-red ml-2">${shortRisk}</span>
-              </div>
-              <span class="badge badge-red risk-red">AT RISK</span>
-            </div>
-          `;
-        });
-        html += '</div>';
-      }
-
-      const today = new Date();
-      const fourMonthsOut = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
-      const upcomingPayments = (payments || []).filter(p => {
-        if (!p.dueDate || p.status === 'Paid') return false;
-        const due = new Date(p.dueDate);
-        return due > today && due <= fourMonthsOut;
-      }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-      
-      if (upcomingPayments.length > 0) {
-        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">PAYMENT FORECAST (Next 4 Months)</p>';
-        const totalForecast = upcomingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-        html += `<p class="text-xs text-gray-400 mb-2">Total: MYR ${totalForecast.toLocaleString()}</p>`;
-        upcomingPayments.slice(0, 4).forEach(p => {
-          html += `
-            <div class="alert-item flex justify-between items-center text-xs">
-              <span class="font-bold">${p.recipient || p.vendor || 'Unknown'}</span>
-              <span class="text-gray-400">${p.dueDate}</span>
-              <span class="font-bold">MYR ${(p.amount || 0).toLocaleString()}</span>
-            </div>
-          `;
-        });
-        html += '</div>';
-      }
-
-      const pendingDocs = (deliverables || []).filter(d => d.status === 'Submitted' || d.status === 'Pending');
-      if (pendingDocs.length > 0) {
-        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">📥 PENDING VERIFICATION</p>';
-        pendingDocs.slice(0, 3).forEach(d => {
-          html += `
-            <div class="alert-item flex justify-between items-center">
-              <span class="font-bold">${d.title || 'Document'}</span>
-              <span class="badge badge-yellow">PENDING</span>
-            </div>
-          `;
-        });
-        html += '</div>';
-      }
-
-      const meetings = dataCache.meetings || [];
-      const upcomingMeetings = meetings.filter(m => m.date && new Date(m.date) >= today).sort((a, b) => new Date(a.date) - new Date(b.date));
-      const nextMeeting = upcomingMeetings[0];
-      if (nextMeeting) {
-        const statusBadge = nextMeeting.status === 'Confirmed' ? 'badge-green' : 
-                           nextMeeting.status === 'Pending' ? 'badge-yellow' : 
-                           nextMeeting.status === 'Rescheduled' ? 'badge-yellow' : 'badge-red';
-        html += `
-          <div class="section-divider">
-            <p class="font-bold text-sm neon-header">NEXT SCHEDULED MEETING</p>
-            <div class="alert-item flex justify-between items-center">
-              <div>
-                <p class="font-bold">${nextMeeting.title || 'Meeting'}</p>
-                <p class="text-xs text-gray-400">${nextMeeting.date || '—'}</p>
-              </div>
-              <span class="badge ${statusBadge}">${nextMeeting.status || 'Pending'}</span>
-            </div>
-          </div>
-        `;
-      }
-
-      container.innerHTML = html || '<p class="text-sm text-gray-400">No alerts</p>';
+      container.innerHTML = alerts.slice(0, 5).map(a => `
+        <div class="alert-item">
+          <div class="text-sm font-bold">${a.title || 'Alert'}</div>
+          <div class="text-xs text-gray-400 mt-1">${a.message || ''}</div>
+        </div>
+      `).join('');
     }
 
     function renderVendors() {
@@ -424,44 +184,29 @@
       `).join('');
     }
 
-    function renderGateProgress() {
+    function renderGates() {
       const { gates } = dataCache;
-      const container = document.getElementById('gateProgress');
+      const container = document.getElementById('gates');
       if (!gates || gates.length === 0) {
         container.innerHTML = '<p class="text-sm text-gray-400">No gate data</p>';
         return;
       }
-      
-      const currentGate = gates.find(g => g.approved < g.total) || gates[gates.length - 1];
-      const pct = currentGate.total > 0 ? Math.round((currentGate.approved / currentGate.total) * 100) : 0;
-      
-      let html = `
-        <div class="mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-lg font-bold">${currentGate.gate || 'Unknown'}</div>
-            <div class="text-sm text-gray-400">${currentGate.approved} / ${currentGate.total} deliverables</div>
-          </div>
-          <div class="w-full h-6 bg-gray-700 rounded-full overflow-hidden">
-            <div class="h-full bg-cyan-500 transition-all duration-500" style="width: ${pct}%"></div>
-          </div>
-          <div class="text-center text-2xl font-bold mt-2">${pct}%</div>
-        </div>
-        <div class="text-xs text-gray-400">
-          <p class="font-bold mb-1">All Gates:</p>
-      `;
-      
-      gates.forEach(g => {
-        const gPct = g.total > 0 ? Math.round((g.approved / g.total) * 100) : 0;
-        html += `
-          <div class="flex items-center justify-between py-1">
-            <span>${g.gate}</span>
-            <span class="font-bold">${gPct}%</span>
+      const rows = gates.map(g => {
+        const pct = g.total > 0 ? Math.round((g.approved / g.total) * 100) : 0;
+        return `
+          <div class="flex items-center justify-between py-2 border-b border-gray-700">
+            <div class="text-sm font-bold">${g.gate || 'Unknown'}</div>
+            <div class="flex items-center gap-3">
+              <div class="text-xs text-gray-400">${g.approved} / ${g.total}</div>
+              <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-green-500" style="width: ${pct}%"></div>
+              </div>
+              <div class="text-xs font-bold w-10 text-right">${pct}%</div>
+            </div>
           </div>
         `;
-      });
-      html += '</div>';
-      
-      container.innerHTML = html;
+      }).join('');
+      container.innerHTML = rows;
     }
 
     document.getElementById('summarizeBtn').addEventListener('click', async () => {
