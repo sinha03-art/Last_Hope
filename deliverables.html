@@ -6,7 +6,7 @@
   <title>Gate Deliverables — Board</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
   :root{ --bg:#f6f8fa; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; }
@@ -50,9 +50,8 @@
   const STATUS_ORDER = ['Missing','Submitted','Rejected','Approved'];
   const STATUS_TITLES = { Missing:'Missing', Submitted:'Submitted', Rejected:'Rejected', Approved:'Approved' };
   let dataCache;
-  let ownerFilter = ''; // '', 'solomon', 'harminder'
+  let ownerFilter = '';
 
-  // REQUIRED list per gate (kept in sync with Config/README)
   const REQUIRED_BY_GATE = {
     "PreconstructionRequired": [
       "Approved Permit (Authority)",
@@ -121,13 +120,13 @@
     const have = deliveredIndex(list);
     const out = [];
     Object.entries(REQUIRED_BY_GATE).forEach(([gate, req])=>{
-      if (gate === 'PreconstructionRequired') return; // not shown here
+      if (gate === 'PreconstructionRequired') return;
       (req||[]).forEach(title=>{
         const got = have[gate] && have[gate].has(norm(title));
         if (!got) {
           out.push({
             title, gate, status: 'Missing', assignees: [],
-            url: '' // send to Designer Submission Portal
+            url: ''
           });
         }
       });
@@ -145,16 +144,16 @@
     return `
       <div class="flex items-end justify-between mb-3">
         <div>
-          <h2 class="text-xl font-black">\${g}</h2>
+          <h2 class="text-xl font-black">${g}</h2>
           <p class="text-xs text-slate-500">
-            Required: \${c.total}
-            • Approved: \${c.Approved}
-            • Submitted: \${c.Submitted}
-            • Missing: \${c.Missing}
-            • Rejected: \${c.Rejected}
+            Required: ${c.total}
+            • Approved: ${c.Approved}
+            • Submitted: ${c.Submitted}
+            • Missing: ${c.Missing}
+            • Rejected: ${c.Rejected}
           </p>
         </div>
-        <div class="text-xs text-slate-500">Last updated: \${new Date().toLocaleString()}</div>
+        <div class="text-xs text-slate-500">Last updated: ${new Date().toLocaleString()}</div>
       </div>
     `;
   }
@@ -163,13 +162,13 @@
     const owners = (d.assignees && d.assignees.length) ? d.assignees.join(', ') : '—';
     const badgeClass = 'badge badge-' + (STATUS_ORDER.includes(d.status) ? d.status : 'Missing');
     return `
-      <a href="\${d.url}" target="_blank" class="card-item block">
+      <a href="${d.url}" target="_blank" class="card-item block">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="font-bold truncate">\${d.title}</p>
-            <p class="text-xs text-slate-500 mt-1">Assignees: \${owners}</p>
+            <p class="font-bold truncate">${d.title}</p>
+            <p class="text-xs text-slate-500 mt-1">Assignees: ${owners}</p>
           </div>
-          <span class="\${badgeClass}">\${d.status || 'Missing'}</span>
+          <span class="${badgeClass}">${d.status || 'Missing'}</span>
         </div>
       </a>
     `;
@@ -179,11 +178,11 @@
     return `
       <div class="col p-3">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-bold text-slate-600">\${title}</p>
-          <span class="text-[10px] text-slate-500">\${items.length}</span>
+          <p class="text-xs font-bold text-slate-600">${title}</p>
+          <span class="text-[10px] text-slate-500">${items.length}</span>
         </div>
         <div class="space-y-2">
-          \${items.map(itemCard).join('')}
+          ${items.map(itemCard).join('')}
         </div>
       </div>
     `;
@@ -197,7 +196,6 @@
     render();
   }
 
-  // READY-TO-USE RENDER (updated and complete)
   function render(){
     const q = document.getElementById('q').value.trim().toLowerCase();
     const gateSel = document.getElementById('gateFilter').value;
@@ -226,9 +224,9 @@
       const statusGroups = byStatus(items);
       const board = `
         <section>
-          \${gateHeader(gate, items)}
+          ${gateHeader(gate, items)}
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            \${STATUS_ORDER.map(s => column(STATUS_TITLES[s], statusGroups[s])).join('')}
+            ${STATUS_ORDER.map(s => column(STATUS_TITLES[s], statusGroups[s])).join('')}
           </div>
         </section>
       `;
@@ -241,22 +239,18 @@
     if (!res.ok) throw new Error('Failed to load data');
     dataCache = await res.json();
 
-    // Build gate options
     const gates = Array.from(new Set((dataCache.deliverables || []).map(d => d.gate || 'Uncategorized'))).sort();
     const sel = document.getElementById('gateFilter');
     sel.innerHTML = `<option value="">All gates</option>`;
-    gates.forEach(g => sel.insertAdjacentHTML('beforeend', `<option>\${g}</option>`));
+    gates.forEach(g => sel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
 
-    // Owner chips
     document.querySelectorAll('#ownerChips [data-owner]').forEach(btn=>{
       btn.addEventListener('click', ()=> setOwnerFilter(btn.dataset.owner));
     });
 
-    // NEW: preselect gate from URL if present
     const urlGate = new URLSearchParams(location.search).get('gate');
     if (urlGate && gates.includes(urlGate)) { sel.value = urlGate; }
 
-    // Existing: preselect owner from URL if present
     const urlOwner = new URLSearchParams(location.search).get('owner');
     if (urlOwner) setOwnerFilter(urlOwner);
 
@@ -267,7 +261,7 @@
   document.getElementById('gateFilter').addEventListener('change', render);
 
   load().catch(err=>{
-    document.getElementById('root').innerHTML = `<div class="text-rose-600 text-sm">Error: \${err.message}</div>`;
+    document.getElementById('root').innerHTML = `<div class="text-rose-600 text-sm">Error: ${err.message}</div>`;
   });
   </script>
 </body>
