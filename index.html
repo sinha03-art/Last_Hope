@@ -1,461 +1,710 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8" />
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 <title>Project Dashboard</title>
+
 <!-- Favicon -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='https://www.w3.org/2000/svg'' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏠%3C/text%3E%3C/svg%3E">
+
 <!-- Fonts + Tailwind -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
+
+<script src="https://cdn.tailwindcss.com/"></script>
+
 <!-- Chart.js (UMD) -->
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+
 <style>
-:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8eb;}
+
+:root{ --bg:#f1f3f5; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --brand:#e11d48; --nav:#0f2133; --nav-ink:#e2e8f0;}
+
 .dark { --bg:#0b1220; --panel:#0f172a; --ink:#e5e7eb; --muted:#93a3b8; --nav:#0b1220; --nav-ink:#e5e7eb; }
+
 html,body{height:100%}
-body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--ink);}
+
+body{font-family:"Lato",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--ink); margin:0;}
+
 .pill{font-weight:800;font-size:.625rem; line-height:1; padding:.25rem .4rem; border-radius:999px; background:#ef4444; color:#fff;}
+
 .nav-sep{box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);}
-.hr{height:1px; background: #e5e7eb;}
+
+.hr{height:1px; background:#e5e7eb;}
+
 .top-shadow{box-shadow: 0 1px 0 rgba(15,33,51,.06);}
+
 .kpi{border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem; background:var(--panel)}
-.card{background:var(--panel)}
-/* Chart area */
-#cashflowBox { height: 220px; }
-/* Payable / Blocked badges and reason lines */
-.badge { display:inline-block; font-size:.65rem; font-weight:700; line-height:1; padding:.2rem .45rem; border-radius:999px; }
-.badge-ok { background:#d1fae5; color:#065f46 }     /* Payable */
-.badge-warn { background:#fde68a; color:#92400e }   /* Upcoming blocked */
-.badge-stop { background:#fee2e2; color:#991b1b }   /* Overdue blocked */
-.reason { display:block; font-size:.72rem; color:#475569; margin-top:.15rem; }
-/* GO / NO-GO styles */
-.gochip { background:#d1fae5; color:#065f46 }
-.nogochip { background:#fee2e2; color:#991b1b }
-.gocard { background:#ecfdf5 }
-.nogocard { background:#fef2f2 }
-/* Sidebar video wrapper (16:9) */
+
+.card{background:var(--panel); border:1px solid #e5e7eb; border-radius:.75rem;}
+
+/ *Sidebar video wrapper (16:9)* /
+
 .sidebar-video { position:relative; width:100%; overflow:hidden; border-radius:.5rem; margin-bottom:.75rem; padding-top:56.25%;}
+
 .sidebar-video iframe { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+/ *Chart area* /
+
+#cashflowBox { height: 220px; }
+
+/ *Payable / Blocked badges and reason lines* /
+
+.badge { display:inline-block; font-size:.65rem; font-weight:700; line-height:1; padding:.2rem .45rem; border-radius:999px; margin-left:.5rem; }
+
+.badge-ok { background:#d1fae5; color:#065f46 }     / *Payable* /
+
+.badge-warn { background:#fde68a; color:#92400e }   / *Upcoming blocked* /
+
+.badge-stop { background:#fee2e2; color:#991b1b }   / *Overdue blocked* /
+
+.reason { display:block; font-size:.72rem; color:#475569; margin-top:.15rem; }
+
+/ *GO / NO-GO styles* /
+
+.gochip { background:#d1fae5; color:#065f46; padding:.5rem 1rem; border-radius:999px; font-weight:900; font-size:.875rem; }
+
+.nogochip { background:#fee2e2; color:#991b1b; padding:.5rem 1rem; border-radius:999px; font-weight:900; font-size:.875rem; }
+
+.gocard { background:#ecfdf5; border-color:#a7f3d0; }
+
+.nogocard { background:#fef2f2; border-color:#fca5a5; }
+
+/ *Compact lists + separators* /
+
+.sep { height:1px; background:#e5e7eb; margin:8px 0; }
+
+.dark .sep { background: rgba(255,255,255,.12); }
+
+.compact-list li { padding:6px 0; display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+
+.compact-list .left { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.compact-list .right { text-align:right; white-space:nowrap; }
+
+/ *Compressed progress bars (Codelab-like)* /
+
+.progress { width:100%; background:#e5e7eb; height:6px; border-radius:999px; overflow:hidden; }
+
+.dark .progress { background:rgba(255,255,255,.12); }
+
+.progress > span { display:block; height:100%; background:#10b981; }
+
 </style>
+
 </head>
+
 <body>
+
 <div class="min-h-screen grid grid-cols-[260px_1fr]">
+
 <!-- Sidebar -->
+
 <aside class="bg-[var(--nav)] text-[var(--nav-ink)]">
+
 <div class="p-6">
-<!-- 16:9 responsive video -->
+
 <div class="sidebar-video">
+
 <iframe
-src="https://player.vimeo.com/video/1121406919?h=abcdef&badge=0&title=0&byline=0&portrait=0"
-title="Project intro"
+
+src="https://player.vimeo.com/video//1121406919?h=abcdef&badge=0&title=0&byline=0&portrait=0"
+
+title="JOOBIN Residence — 1‑minute overview video"
+
 frameborder="0"
+
 allow="autoplay; fullscreen; picture-in-picture"
+
 allowfullscreen
+
 loading="lazy"></iframe>
+
 </div>
+
 <div class="leading-tight">
+
 <p class="font-black tracking-wide uppercase">JOOBIN</p>
+
 <p class="text-[10px] opacity-70">Assets</p>
+
 </div>
-<!-- Property write-up -->
+
 <div class="mt-3 text-[13px] text-white">
+
 <p><strong>Project:</strong> JOOBIN Residence</p>
+
 <p><strong>Status:</strong> 3D design stage. Construction not started.</p>
-<p class="text-[12px] opacity-70">One‑minute ambient clip sharing corrected code and dashboard direction.</p>
+
+<p class="text-[12px] opacity-70">
+The Renovation will significantly expand the livable square footage on all levels through major structural additions to the rear, sides, and rooftop. Notable enhancements include a new roof terrace, a covered car porch, and enlarged master, junior, and parent suites, with the latter featuring a lounge and wardrobe.
+
+The design opens up terraces and courtyards, improves circulation with wider hallways, and Modernizes the facade with updated materials and glazing. Sustainability is addressed via rooftop solar zones. 
+
+Every level sees Functional upgrades—from the reimagined laundry and kitchen areas to the addition of a library and improved outdoor spaces.</p>
+
 </div>
+
 </div>
+
 <nav class="mt-4 text-sm">
+
 <div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
+
 <ul>
+
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Dosier</a></li>
+
 <li class="nav-sep">
+
 <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="/deliverables.html">
-Gate Deliverables<span class="pill ml-2">New</span>
+
+Gate DeliverablesNew
+
 </a>
+
 </li>
+
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Project Stage</a></li>
-<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Media<span class="pill ml-2">New</span></a></li>
+
+<li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">MediaNew</a></li>
+
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Tasks</a></li>
+
 <li class="nav-sep"><a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Forms</a></li>
+
 </ul>
+
 </nav>
+
 </aside>
+
 <!-- Main -->
+
 <div class="flex flex-col">
+
 <header class="card top-shadow">
+
 <div class="h-14 flex items-center justify-between px-6">
+
 <p class="font-black tracking-wide">Dashboard</p>
+
 <div class="flex items-center gap-3">
+
 <button id="themeToggle" class="text-xs px-3 py-1 rounded border border-slate-300/50 hover:bg-slate-50 dark:hover:bg-slate-800">Dark</button>
+
 <div class="text-xs opacity-70">JOOBIN</div>
+
 </div>
+
 </div>
+
 </header>
+
 <!-- GO / NO-GO Banner -->
+
 <section id="goNoGo" class="mx-6 mt-4">
-<div id="goNoGoCard" class="rounded border border-slate-200 p-4 flex items-center justify-between">
+
+<div id="goNoGoCard" class="card p-4 flex items-center justify-between">
+
 <div>
+
 <p class="text-xs uppercase text-[var(--muted)]">Pre‑construction readiness</p>
+
 <p id="goNoGoMsg" class="text-lg font-bold">Checking…</p>
+
 <p id="goNoGoReason" class="text-xs text-[var(--muted)] mt-1"></p>
+
 </div>
-<div id="goNoGoChip" class="px-3 py-1 text-xs font-black rounded-full"></div>
+
+—
+
 </div>
+
 </section>
+
 <main class="p-6 space-y-6">
+
+<!-- KPIs -->
+
 <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
 <div class="kpi">
+
 <p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p>
+
 <p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p>
+
 </div>
+
 <div class="kpi">
+
 <p class="text-xs uppercase text-[var(--muted)]">Deliverables Approved</p>
+
 <p id="kpiDeliverables" class="text-3xl font-black">0%</p>
+
 </div>
+
 <div class="kpi">
+
 <p class="text-xs uppercase text-[var(--muted)]">Milestones At Risk</p>
+
 <p id="kpiRisk" class="text-3xl font-black">0</p>
+
 </div>
+
 <div class="kpi">
+
 <p class="text-xs uppercase text-[var(--muted)]">Next 30d Due</p>
+
 <p id="kpiNext30" class="text-3xl font-black">RM 0</p>
+
 <p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p>
+
 </div>
+
 </section>
+
+<!-- Attention Board + Cashflow -->
+
 <section class="grid grid-cols-12 gap-6">
-<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+
+<div class="col-span-12 lg:col-span-6 card p-6">
+
 <h3 class="font-black tracking-wide mb-3">Attention Board</h3>
-<div class="grid md:grid-cols-2 gap-4">
-<div>
-<p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue Payments</p>
-<ul id="overdueList" class="space-y-2 text-sm"></ul>
+
+<p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue payments</p>
+
+<ul id="overdueList" class="compact-list"></ul>
+
+<div class="sep"></div>
+
+<p class="text-xs uppercase text-[var(--muted)] mb-2">90 day payment forecast</p>
+
+<ul id="forecast90" class="compact-list"></ul>
+
 </div>
-<div>
-<p class="text-xs uppercase text-[var(--muted)] mb-2">Upcoming (30d)</p>
-<ul id="upcomingList" class="space-y-2 text-sm"></ul>
-</div>
-</div>
-<div class="hr my-5"></div>
-<div class="grid md:grid-cols-2 gap-4">
-<div>
-<p class="text-xs uppercase text-[var(--muted)] mb-2">Deliverable Issues</p>
-<ul id="deliverableIssues" class="space-y-2 text-sm"></ul>
-</div>
-<div>
-<p class="text-xs uppercase text-[var(--muted)] mb-2">Milestones At Risk</p>
-<ul id="milestonesRisk" class="space-y-2 text-sm"></ul>
-</div>
-</div>
-</div>
-<div class="col-span-12 lg:col-span-6 card rounded border border-slate-200 p-6">
+
+<div class="col-span-12 lg:col-span-6 card p-6">
+
 <h3 class="font-black tracking-wide mb-3">Cashflow (Scheduled vs Paid)</h3>
+
 <div id="cashflowBox" class="relative">
+
 <canvas id="cashflowChart" height="220" style="width:100%;"></canvas>
+
 </div>
+
 </div>
+
 </section>
+
+<!-- Compressed Gates + Vendors -->
+
 <section class="grid grid-cols-12 gap-6">
-<div class="col-span-12 xl:col-span-8 card rounded border border-slate-200 p-6">
-<h3 class="font-black tracking-wide mb-3">Gate Progress</h3>
-<div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+<div class="col-span-12 xl:col-span-8 card p-6">
+
+<h3 class="font-black tracking-wide mb-3">Gate Progress (compressed)</h3>
+
+<ul id="gatesCompressed" class="space-y-3"></ul>
+
 </div>
-<div class="col-span-12 xl:col-span-4 card rounded border border-slate-200 p-6">
+
+<div class="col-span-12 xl:col-span-4 card p-6">
+
 <h3 class="font-black tracking-wide mb-3">Top Vendors Outstanding</h3>
+
 <ul id="topVendors" class="space-y-2 text-sm"></ul>
+
 </div>
+
 </section>
-<section class="card rounded border border-slate-200 p-6">
+
+<!-- Weekly AI Summary -->
+
+<section class="card p-6">
+
 <div class="flex items-center justify-between">
+
 <h3 class="font-black tracking-wide">Weekly AI Summary</h3>
+
 <button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
+
 </div>
+
 <div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
+
 </section>
-<!-- Status line for fetch errors -->
+
+<!-- Status line -->
+
 <div id="status" class="px-1 text-xs text-rose-600"></div>
+
 </main>
+
 </div>
+
 </div>
+
 <script>
+
 // THEME
+
 const btn = document.getElementById('themeToggle');
-function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; }
+
+function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); localStorage.setItem('theme', t); btn.textContent = t==='dark' ? 'Light' : 'Dark'; if (dataCache && cashflowChart) renderCashflow(dataCache.cashflow||[]); }
+
 applyTheme(localStorage.getItem('theme') || 'light');
+
 btn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
 
 // HELPERS
-const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
-const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
-let dataCache = null;
-function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3'; el.innerHTML=html; return el; }
 
-// --- GO / NO-GO evaluation ---
+const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
+
+const fmtMYR0 = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
+
+const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
+
+const fmtDM = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
+
+const monthLabel = d => d.toLocaleDateString('en-GB', { month:'short', year:'numeric' });
+
+let dataCache = null;
+
+function li(html){ const el=document.createElement('li'); el.className='flex justify-between gap-3 items-start'; el.innerHTML=html; return el; }
+
+// GO / NO-GO
+
 function renderGoNoGo(a){
+
 const card = document.getElementById('goNoGoCard');
+
 const chip = document.getElementById('goNoGoChip');
+
 const msg  = document.getElementById('goNoGoMsg');
+
 const why  = document.getElementById('goNoGoReason');
 
-// Ensure chip element exists before trying to modify it
-if (!chip) {
-console.error("Error: #goNoGoChip element not found.");
-return;
-}
-
-const hasPreBlock = (list=[]) => list.some(p =>
-Array.isArray(p.blockedReasons) &&
-p.blockedReasons.some(r => r.toLowerCase().includes('pre‑construction'))
-);
+const hasPreBlock = (list=[]) => list.some(p => Array.isArray(p.blockedReasons) && p.blockedReasons.some(r => r.toLowerCase().includes('pre‑construction')));
 
 const preBlocked = hasPreBlock(a.paymentsOverdue||[]) || hasPreBlock(a.paymentsUpcoming||[]);
 
-if (preBlocked){
-card.classList.add('nogocard'); card.classList.remove('gocard');
-chip.className = 'nogochip px-3 py-1 text-xs font-black rounded-full';
-chip.textContent = 'NO‑GO';
-msg.textContent = 'Pre‑construction prerequisites not fully approved';
-why.textContent = 'Approve all mandatory items before work or payment proceeds.';
-} else {
-card.classList.add('gocard'); card.classList.remove('nogocard');
-chip.className = 'gochip px-3 py-1 text-xs font-black rounded-full';
-chip.textContent = 'GO';
-msg.textContent = 'Pre‑construction prerequisites satisfied';
-why.textContent = 'You can proceed with scheduled work and pay Payable items only.';
-}
+card.classList.remove('gocard','nogocard'); chip.classList.remove('gochip','nogochip');
+
+if (preBlocked){ card.classList.add('nogocard'); chip.classList.add('nogochip'); chip.textContent='NO‑GO'; msg.textContent='Pre‑construction prerequisites not fully approved'; why.textContent='Approve all mandatory items before work or payment proceeds.'; }
+
+else { card.classList.add('gocard'); chip.classList.add('gochip'); chip.textContent='GO'; msg.textContent='Pre‑construction prerequisites satisfied'; why.textContent='You can proceed with scheduled work and pay Payable items only.'; }
+
 }
 
-// RENDERERS
+// KPIs
+
 function renderKPIs(k){
+
 document.getElementById('kpiPaidVsBudget').textContent = (((k.paidVsBudget||0)*100).toFixed(1))+'%';
+
 document.getElementById('kpiDeliverables').textContent = (((k.deliverablesProgress||0)*100).toFixed(0))+'%';
+
 document.getElementById('kpiRisk').textContent = (k.milestonesAtRisk||0);
-document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
-document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
+
+document.getElementById('kpiNext30').textContent = fmtMYR([k.next](http://k.next)30?.amount||0);
+
+document.getElementById('kpiNext30Count').textContent = ([k.next](http://k.next)30?.count||0)+' items';
+
 }
 
-function renderAlerts(a){
-const overdue = document.getElementById('overdueList'); overdue.innerHTML='';
-(a.paymentsOverdue||[]).slice(0,8).forEach(p=>{
-const blocked = p.payable === false;
-const reasons = Array.isArray(p.blockedReasons) ? p.blockedReasons : [];
-const badgeClass = blocked ? 'badge badge-stop' : 'badge badge-ok';
-const badgeText = blocked ? 'Blocked' : 'Payable';
-const reasonText = blocked && reasons.length ? reasons[0] : '';
-const reasonTitle = reasons.length ? reasons.join(' • ') : ''; // Tooltip for all reasons
+// Attention Board — Overdue compact
 
-overdue.appendChild(li(`
-<div class="min-w-0 flex-1">
-<a href="${p.url}" target="_blank"
-class="truncate underline decoration-slate-300 hover:decoration-rose-400"
-title="${reasonTitle}">${p.title}</a>
-<span class="${badgeClass}">${badgeText}</span>
-${reasonText ? `<span class="reason" title="${reasonTitle}">${reasonText}</span>` : ''}
-</div>
-<div class="shrink-0 text-right">
-${fmtMYR(p.amount)}<br>
-<span class="text-[var(--muted)] text-xs">${fmtDate(p.dueDate)}</span>
-</div>
-`));
+function renderOverdue(overdue){
+
+const ul = document.getElementById('overdueList'); if (!ul) return;
+
+ul.innerHTML = '';
+
+(overdue||[]).forEach(p => {
+
+ul.insertAdjacentHTML('beforeend', `
+
+<li>
+
+${p.vendor || 'Unknown'}
+
+${fmtMYR0(p.amount)}
+
+ • due ${fmtDM(p.dueDate)}
+
+</span>
+
+</li>
+
+`);
+
 });
 
-const upcoming = document.getElementById('upcomingList'); upcoming.innerHTML='';
-(a.paymentsUpcoming||[]).slice(0,8).forEach(p=>{
-const blocked = p.payable === false;
-const reasons = Array.isArray(p.blockedReasons) ? p.blockedReasons : [];
-const badgeClass = blocked ? 'badge badge-warn' : 'badge badge-ok';
-const badgeText = blocked ? 'Blocked' : 'Payable';
-const reasonText = blocked && reasons.length ? reasons[0] : '';
-const reasonTitle = reasons.length ? reasons.join(' • ') : '';
+if ((overdue||[]).length===0) ul.innerHTML = `<li><span class="left text-[var(--muted)] text-sm">No overdue items</span></li>`;
 
-upcoming.appendChild(li(`
-<div class="min-w-0 flex-1">
-<a href="${p.url}" target="_blank"
-class="truncate underline decoration-slate-300 hover:decoration-rose-400"
-title="${reasonTitle}">${p.title}</a>
-<span class="${badgeClass}">${badgeText}</span>
-${reasonText ? `<span class="reason" title="${reasonTitle}">${reasonText}</span>` : ''}
-</div>
-<div class="shrink-0 text-right">
-${fmtMYR(p.amount)}<br>
-<span class="text-[var(--muted)] text-xs">${fmtDate(p.dueDate)}</span>
-</div>
-`));
-});
-
-const deliv = document.getElementById('deliverableIssues'); deliv.innerHTML='';
-(a.deliverablesIssues||[]).slice(0,8).forEach(d=>{
-deliv.appendChild(li(`
-<a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a>
-<span class="pill ml-2 ${d.status === 'Overdue' ? 'bg-red-500' : 'bg-orange-500'}">${d.status}</span>
-`));
-});
-
-const risk = document.getElementById('milestonesRisk'); risk.innerHTML='';
-(a.milestonesRisk||[]).slice(0,8).forEach(m=>{
-risk.appendChild(li(`
-<a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a>
-<span class="pill ml-2 ${m.riskStatus === 'High' ? 'bg-red-500' : 'bg-orange-500'}">${m.riskStatus}</span>
-`));
-});
 }
+
+// 90 Day Payment Forecast
+
+function renderForecast90(payments){
+
+const ul = document.getElementById('forecast90'); if (!ul) return; ul.innerHTML='';
+
+const now = new Date(); const in90 = new Date(now.getTime()+90*24*60*60*1000);
+
+const upcoming = (payments||[]).filter(p => p.status!=='Paid' && p.dueDate && new Date(p.dueDate)>=now && new Date(p.dueDate)<=in90);
+
+const byMonth = {};
+
+upcoming.forEach(p=>{ const d=new Date(p.dueDate); const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; (byMonth[ym] ||= []).push(p); });
+
+const months = Object.keys(byMonth).sort().slice(0,6);
+
+months.forEach((ym, idx) => {
+
+const list = byMonth[ym]; const d = new Date(ym+'-01'); const label = monthLabel(d);
+
+const total = list.reduce((s,p)=> s+(p.amount||0),0);
+
+ul.insertAdjacentHTML('beforeend', `<li><span class="left font-semibold">${label}</span><span class="right font-bold">${fmtMYR0(total)}</span></li>`);
+
+list.sort((a,b)=> new Date(a.dueDate)-new Date(b.dueDate)).slice(0,6).forEach(p=>{
+
+ul.insertAdjacentHTML('beforeend', `
+
+<li>
+
+${p.vendor || 'Unknown'}
+
+${fmtMYR0(p.amount)}
+
+ • ${d.toLocaleDateString('en-GB',{month:'short'})}
+
+</span>
+
+</li>
+
+`);
+
+});
+
+if (idx<months.length-1) ul.insertAdjacentHTML('beforeend', `<li><div class="sep"></div></li>`);
+
+});
+
+if (months.length===0) ul.innerHTML = `<li><span class="left text-[var(--muted)] text-sm">No forecasted payments in next 90 days</span></li>`;
+
+}
+
+// Cashflow
 
 let cashflowChart;
+
 function renderCashflow(cf) {
-const el = document.getElementById('cashflowChart');
-if (!el) return;
+
+const el = document.getElementById('cashflowChart'); if (!el) return;
+
 const data = Array.isArray(cf) ? cf.slice() : [];
 
-if (cashflowChart) { try { cashflowChart.destroy(); } catch(e){ console.error("Error destroying chart:", e); } cashflowChart = null; }
+if (cashflowChart) { try { cashflowChart.destroy(); } catch(e){} cashflowChart = null; }
 
-if (data.length === 0) {
-const ctx = el.getContext('2d');
-if (ctx) ctx.clearRect(0, 0, el.width, el.height);
-return;
-}
+if (data.length === 0) { const ctx = el.getContext('2d'); if (ctx) ctx.clearRect(0,0,el.width,el.height); return; }
 
-const labels = data.map(r => r.ym);
-const scheduled = data.map(r => r.scheduled || 0);
-const paid = data.map(r => r.paid || 0);
+const labels = [data.map](http://data.map)(r => r.ym);
+
+const scheduled = [data.map](http://data.map)(r => r.scheduled || 0);
+
+const paid = [data.map](http://data.map)(r => r.paid || 0);
+
+const style = getComputedStyle(document.body);
+
+const scheduledColor = style.getPropertyValue('--nav').trim();
+
+const paidColor = style.getPropertyValue('--brand').trim();
+
+const gridColor = '#e5e7eb';
 
 cashflowChart = new Chart(el.getContext('2d'), {
+
 type: 'bar',
-data: {
-labels,
-datasets: [
-{ label: 'Scheduled', data: scheduled, backgroundColor: '#0f2133', borderRadius: 6 },
-{ label: 'Paid', data: paid, backgroundColor: '#e11d48', borderRadius: 6 }
-]
-},
+
+data: { labels, datasets: [
+
+{ label: 'Scheduled', data: scheduled, backgroundColor: scheduledColor, borderRadius: 6 },
+
+{ label: 'Paid', data: paid, backgroundColor: paidColor, borderRadius: 6 }
+
+]},
+
 options: {
-responsive: true,
-maintainAspectRatio: false,
+
+responsive: true, maintainAspectRatio: false,
+
 plugins: { legend: { position: 'bottom' } },
+
 scales: {
+
 x: { grid: { display: false } },
-y: { beginAtZero: true, grid: { color: '#e5e7eb' } }
+
+y: { beginAtZero: true, grid: { color: gridColor } }
+
 }
+
 }
+
 });
+
 }
+
+// Top Vendors
 
 function renderTopVendors(list){
+
 const ul = document.getElementById('topVendors'); if (!ul) return; ul.innerHTML = '';
+
 (list||[]).forEach(r => ul.insertAdjacentHTML('beforeend',
-`<li class="flex justify-between"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
+
+`<li class="flex justify-between items-center"><span class="truncate">${r.vendor}</span><span class="font-bold">${fmtMYR(r.amount)}</span></li>`));
+
 }
 
-function renderGates(gates){
-  const wrap = document.getElementById('gatesWrap'); 
-  wrap.innerHTML='';
+// Gates compressed (Codelab-like)
 
-  // Build an index of Missing deliverables by gate from the live payload
-  const missingByGate = {};
-  (dataCache?.deliverables || []).forEach(d => {
-    if (d.status === 'Missing') {
-      const g = d.gate || 'Uncategorized';
-      (missingByGate[g] ||= []).push(d);
-    }
-  });
+function renderGatesCompressed(gates){
 
-  (gates||[]).forEach(g=>{
-    const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
-    const topMissing = (missingByGate[g.id] || []).slice(0,3).map(d => `• ${d.title}`).join('<br>');
+const ul = document.getElementById('gatesCompressed'); if (!ul) return; ul.innerHTML='';
 
-    const viewHref = `/deliverables.html?gate=${encodeURIComponent(g.id)}`;
-    const uploadHref = `https://www.notion.so/46f232d47c3b4d5da87d5a121c287497`; // Public Designer Submission Portal
+(gates||[]).forEach(g=>{
 
-    const card = document.createElement('div');
-    card.className='rounded border border-slate-200 p-4';
-    card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <p class="font-bold">${g.id}</p>
-        <span class="text-xs ${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">
-          ${g.blocked>0?'Blocked':'Clear'}
-        </span>
-      </div>
+const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
 
-      <div class="mt-3">
-        <div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
-          <div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
-        </div>
+ul.insertAdjacentHTML('beforeend', `
 
-        <p class="mt-2 text-xs text-[var(--muted)]">
-          Required ${g.required}
-          • Approved ${g.approved}
-          • Submitted ${g.submitted ?? 0}
-          • Missing ${g.blocked}
-          • Milestones complete ${g.milestonesComplete}
-        </p>
+<li>
 
-        ${typeof g.gateApprovalRate === 'number' ? `
-        <p class="mt-1 text-[10px] text-[var(--muted)]">
-          Approval rate ${(g.gateApprovalRate*100).toFixed(0)}%
-          • Submission rate ${(g.gateSubmissionRate*100).toFixed(0)}%
-        </p>` : ``}
+<div class="flex items-center justify-between mb-1">
 
-        ${topMissing ? `
-        <div class="mt-2 text-[11px] text-slate-600">
-          <span class="font-semibold">Top Missing:</span><br>${topMissing}
-        </div>` : ``}
+${[g.id](http://g.id)}
 
-        <div class="mt-3 flex items-center gap-3">
-          <a href="${viewHref}" class="text-xs underline decoration-slate-300 hover:decoration-rose-400">View docs</a>
-          <span class="text-slate-400">•</span>
-          <a href="${uploadHref}" target="_blank" class="text-xs underline decoration-slate-300 hover:decoration-rose-400">Upload</a>
-        </div>
-      </div>`;
-    wrap.appendChild(card);
-  });
+${pct}%
+
+</div>
+
+<div class="progress"></div>
+
+<div class="mt-1 text-[10px] text-[var(--muted)]">Req ${g.required} • Appr ${g.approved} • Subm ${g.submitted ?? 0} • Miss ${g.blocked}</div>
+
+</li>
+
+`);
+
+});
+
+if ((gates||[]).length===0) ul.innerHTML = `<li><span class="text-[var(--muted)] text-sm">No gate data</span></li>`;
+
+}
+
+// Existing attention items (kept for other panels)
+
+function renderAlerts(a){
+
+// Intentionally left minimal since we render compact lists separately
+
 }
 
 // STATUS + DATA FLOW
+
 const statusEl = document.getElementById('status');
+
 async function autoSummary(){
-if (!dataCache) {
-document.getElementById('summaryOut').textContent = 'No data available for summary.';
-return;
-}
+
+if (!dataCache) { document.getElementById('summaryOut').textContent = 'No data available for summary.'; return; }
+
 try {
+
 const resp = await fetch('/.netlify/functions/proxy', {
-method:'POST',
-headers:{'Content-Type':'application/json'},
+
+method:'POST', headers:{'Content-Type':'application/json'},
+
 body: JSON.stringify({ type:'summary', data: dataCache })
+
 });
+
 const out = await resp.json().catch(()=>({}));
-document.getElementById('summaryOut').textContent = out.text || 'No response from AI summary service.';
+
+document.getElementById('summaryOut').textContent = out.text || 'No response.';
+
 } catch (err) {
-document.getElementById('summaryOut').textContent = `AI summary unavailable: ${err.message}`;
-console.error(err);
+
+document.getElementById('summaryOut').textContent = 'AI summary unavailable.';
+
 }
+
 }
 
 async function loadData(){
+
 statusEl.textContent = 'Loading…';
+
 try {
+
 const r = await fetch('/.netlify/functions/proxy', { headers:{'Accept':'application/json'} });
+
 if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
 dataCache = await r.json();
+
 renderKPIs(dataCache.kpis || {});
-renderAlerts(dataCache.alerts || { paymentsOverdue: [], paymentsUpcoming: [], deliverablesIssues: [], milestonesRisk: [] });
+
 renderGoNoGo(dataCache.alerts || {});
+
 renderCashflow(dataCache.cashflow || []);
-renderGates(dataCache.gates || []);
+
 renderTopVendors(dataCache.topVendors || []);
+
+// New compact boards
+
+renderOverdue(dataCache.alerts?.paymentsOverdue || []);
+
+renderForecast90(dataCache.payments || []);
+
+renderGatesCompressed(dataCache.gates || []);
+
 statusEl.textContent = '';
+
 } catch (err) {
+
 statusEl.textContent = `Failed to load data: ${err.message}`;
+
 console.error(err);
+
 }
+
 }
 
 document.getElementById('genSummary').addEventListener('click', autoSummary);
 
 // Boot
+
 loadData().then(autoSummary).catch(err=>console.error(err));
+
 </script>
+
 </body>
+
 </html>
