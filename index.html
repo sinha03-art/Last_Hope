@@ -151,176 +151,133 @@
     </div>
   </main>
     <script>
-    // Fetch data from proxy
-    async function loadDashboard() {
-      try {
-        const res = await fetch('/.netlify/functions/proxy');
-        const data = await res.json();
-        
-        renderKPIs(data);
-        renderAttentionBoard(data);
-        renderProjectStage(data);
-        renderTopVendors(data);
-      } catch (error) {
-        console.error('Error loading dashboard:', error);
-        document.body.innerHTML = '<div class="p-8 text-red-500">Error loading dashboard. Check console.</div>';
-      }
+  async function loadDashboard() {
+    try {
+      const res = await fetch('/.netlify/functions/proxy');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      console.log('Data loaded:', data);
+      
+      renderKPIs(data);
+      renderAttentionBoard(data);
+      renderProjectStage(data);
+      renderTopVendors(data);
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+      document.body.innerHTML = '<div class="p-8 text-red-500 text-center"><h1 class="text-2xl font-bold mb-4">⚠️ Error Loading Dashboard</h1><p>' + error.message + '</p></div>';
+    }
+  }
+  
+  function renderKPIs(data) {
+    const kpis = data.kpis || {};
+    const totalBudget = 1418996.10;
+    const paid = totalBudget * (kpis.paidVsBudget || 0);
+    const remaining = totalBudget - paid;
+    
+    const deliverables = data.deliverables || [];
+    const approved = deliverables.filter(d => d.status === 'Approved').length;
+    const total = deliverables.length;
+    
+    const html = `
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div class="text-slate-400 text-sm mb-2">Total Budget</div>
+        <div class="text-3xl font-bold text-white">RM ${totalBudget.toLocaleString()}</div>
+      </div>
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div class="text-slate-400 text-sm mb-2">Paid</div>
+        <div class="text-3xl font-bold text-green-400">RM ${Math.round(paid).toLocaleString()}</div>
+      </div>
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div class="text-slate-400 text-sm mb-2">Remaining</div>
+        <div class="text-3xl font-bold text-cyan-400">RM ${Math.round(remaining).toLocaleString()}</div>
+      </div>
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div class="text-slate-400 text-sm mb-2">Deliverables</div>
+        <div class="text-3xl font-bold text-white">${approved}/${total}</div>
+      </div>
+    `;
+    document.getElementById('kpis').innerHTML = html;
+  }
+  
+  function renderAttentionBoard(data) {
+    const alerts = data.alerts || {};
+    const overdue = alerts.paymentsOverdue || [];
+    const deliverables = data.deliverables || [];
+    const pending = deliverables.filter(d => d.status === 'Submitted' || d.status === 'Pending');
+    
+    let html = '';
+    
+    if (pending.length > 0) {
+      html += '<div class="mb-6"><h4 class="font-semibold text-cyan-400 mb-3">📥 PENDING VERIFICATION</h4><div class="space-y-2">';
+      pending.forEach(d => {
+        html += `<div class="bg-slate-700 rounded-lg p-4"><div class="font-semibold text-white">${d.title || 'Untitled'}</div><div class="text-sm text-slate-400 mt-1">Gate: ${d.gate || 'N/A'} • Status: ${d.status || 'N/A'}</div></div>`;
+      });
+      html += '</div></div>';
     }
     
-    function renderKPIs(data) {
-      const kpis = data.kpis || {};
-      const totalBudget = 1418996.10; // From Ham's Playground
-      const paid = totalBudget * (kpis.paidVsBudget || 0);
-      const remaining = totalBudget - paid;
-      
-      const deliverables = data.deliverables || [];
-      const approved = deliverables.filter(d => d.status === 'Approved').length;
-      const total = deliverables.length;
-      
-      const html = `
-        <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div class="text-slate-400 text-sm mb-2">Total Budget</div>
-          <div class="text-3xl font-bold text-white">RM ${totalBudget.toLocaleString()}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div class="text-slate-400 text-sm mb-2">Paid</div>
-          <div class="text-3xl font-bold text-green-400">RM ${paid.toLocaleString('en-MY', {maximumFractionDigits: 0})}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div class="text-slate-400 text-sm mb-2">Remaining</div>
-          <div class="text-3xl font-bold text-cyan-400">RM ${remaining.toLocaleString('en-MY', {maximumFractionDigits: 0})}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div class="text-slate-400 text-sm mb-2">Deliverables</div>
-          <div class="text-3xl font-bold text-white">${approved}/${total}</div>
-        </div>
-      `;
-      document.getElementById('kpis').innerHTML = html;
+    if (overdue.length > 0) {
+      html += '<div class="mb-6"><h4 class="font-semibold text-red-400 mb-3">🚨 OVERDUE PAYMENTS</h4><div class="space-y-2">';
+      overdue.forEach(p => {
+        const amount = p.amount || 0;
+        html += `<div class="bg-slate-700 rounded-lg p-4"><div class="flex justify-between items-start"><div><div class="font-semibold text-white">${p.title || 'Untitled'}</div><div class="text-sm text-slate-400 mt-1">${p.vendor || 'Unknown vendor'}</div></div><div class="text-right"><div class="font-bold text-red-400">RM ${amount.toLocaleString()}</div><div class="text-xs text-slate-400 mt-1">Due: ${p.dueDate || 'N/A'}</div></div></div></div>`;
+      });
+      html += '</div></div>';
     }
     
-    function renderAttentionBoard(data) {
-      const alerts = data.alerts || {};
-      const overdue = alerts.paymentsOverdue || [];
-      const deliverables = data.deliverables || [];
-      const pending = deliverables.filter(d => d.status === 'Submitted' || d.status === 'Pending');
-      
-      let html = '';
-      
-      // Pending Verification
-      if (pending.length > 0) {
-        html += `
-          <div class="mb-6">
-            <h4 class="font-semibold text-cyan-400 mb-3">📥 PENDING VERIFICATION</h4>
-            <div class="space-y-2">
-              ${pending.map(d => `
-                <div class="bg-slate-700 rounded-lg p-4">
-                  <div class="font-semibold text-white">${d.title}</div>
-                  <div class="text-sm text-slate-400 mt-1">Gate: ${d.gate} • Status: ${d.status}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }
-      
-      // Overdue Payments
-      if (overdue.length > 0) {
-        html += `
-          <div class="mb-6">
-            <h4 class="font-semibold text-red-400 mb-3">🚨 OVERDUE PAYMENTS</h4>
-            <div class="space-y-2">
-              ${overdue.map(p => `
-                <div class="bg-slate-700 rounded-lg p-4">
-                  <div class="flex justify-between items-start">
-                    <div>
-                      <div class="font-semibold text-white">${p.title}</div>
-                      <div class="text-sm text-slate-400 mt-1">${p.vendor}</div>
-                    </div>
-                    <div class="text-right">
-                      <div class="font-bold text-red-400">RM ${p.amount.toLocaleString()}</div>
-                      <div class="text-xs text-slate-400 mt-1">Due: ${p.dueDate}</div>
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }
-      
-      if (html === '') {
-        html = '<div class="text-slate-400 text-center py-8">All clear! No urgent items.</div>';
-      }
-      
-      document.getElementById('attention-board').innerHTML = html;
+    if (html === '') {
+      html = '<div class="text-slate-400 text-center py-8">All clear! No urgent items.</div>';
     }
     
-    function renderProjectStage(data) {
-      const gates = data.gates || [];
-      const milestones = data.milestones || [];
-      
-      const gateProgress = gates.map(g => {
-        const pct = g.required > 0 ? Math.round((g.approved / g.required) * 100) : 0;
-        return `
-          <div class="text-center">
-            <div class="progress-circle ${pct === 100 ? 'progress-complete' : 'progress-active'} mx-auto">
-              ${pct}%
-            </div>
-            <div class="text-sm mt-2 text-slate-300 font-semibold">${g.id}</div>
-          </div>
-        `;
-      }).join('');
-      
-      const milestoneCards = milestones.slice(0, 3).map(m => `
-        <div class="bg-slate-700 rounded-lg p-4">
-          <div class="font-semibold text-white mb-2">${m.title}</div>
-          <div class="flex justify-between items-center text-sm">
-            <span class="text-slate-400">${m.phase}</span>
-            <span class="status-badge ${
-              m.riskStatus === 'At Risk' ? 'status-overdue' : 'status-paid'
-            }">${m.riskStatus}</span>
-          </div>
-        </div>
-      `).join('');
-      
-      const html = `
-        <div class="mb-6">
-          <h4 class="font-semibold text-cyan-400 mb-4">Gate Timeline</h4>
-          <div class="grid grid-cols-6 gap-4">
-            ${gateProgress}
-          </div>
-        </div>
-        <div>
-          <h4 class="font-semibold text-cyan-400 mb-4">Active Milestones</h4>
-          <div class="grid grid-cols-3 gap-4">
-            ${milestoneCards}
-          </div>
-        </div>
-      `;
-      
-      document.getElementById('project-stage').innerHTML = html;
-    }
+    document.getElementById('attention-board').innerHTML = html;
+  }
+  
+  function renderProjectStage(data) {
+    const gates = data.gates || [];
+    const milestones = data.milestones || [];
     
-    function renderTopVendors(data) {
-      const vendors = data.topVendors || [];
-      
-      const html = vendors.slice(0, 5).map((v, i) => `
-        <div class="flex items-center justify-between py-4 ${i > 0 ? 'border-t border-slate-700' : ''}">
-          <div>
-            <div class="font-semibold text-white">${v.vendor}</div>
-            <div class="text-sm text-slate-400">Rank #${i + 1}</div>
-          </div>
-          <div class="text-right">
-            <div class="font-bold text-cyan-400">RM ${v.amount.toLocaleString()}</div>
-          </div>
-        </div>
-      `).join('');
-      
-      document.getElementById('top-vendors').innerHTML = html;
-    }
+    let gateProgress = '';
+    gates.forEach(g => {
+      const pct = g.required > 0 ? Math.round((g.approved / g.required) * 100) : 0;
+      const status = pct === 100 ? 'progress-complete' : 'progress-active';
+      gateProgress += `<div class="text-center"><div class="progress-circle ${status} mx-auto">${pct}%</div><div class="text-sm mt-2 text-slate-300 font-semibold">${g.id || 'Unknown'}</div></div>`;
+    });
     
-    // Load dashboard on page load
-    loadDashboard();
-  </script>
+    let milestoneCards = '';
+    milestones.slice(0, 3).forEach(m => {
+      const statusClass = m.riskStatus === 'At Risk' ? 'status-overdue' : 'status-paid';
+      milestoneCards += `<div class="bg-slate-700 rounded-lg p-4"><div class="font-semibold text-white mb-2">${m.title || 'Untitled'}</div><div class="flex justify-between items-center text-sm"><span class="text-slate-400">${m.phase || 'N/A'}</span><span class="status-badge ${statusClass}">${m.riskStatus || 'Unknown'}</span></div></div>`;
+    });
+    
+    const html = `
+      <div class="mb-6">
+        <h4 class="font-semibold text-cyan-400 mb-4">Gate Timeline</h4>
+        <div class="grid grid-cols-6 gap-4">${gateProgress}</div>
+      </div>
+      <div>
+        <h4 class="font-semibold text-cyan-400 mb-4">Active Milestones</h4>
+        <div class="grid grid-cols-3 gap-4">${milestoneCards}</div>
+      </div>
+    `;
+    
+    document.getElementById('project-stage').innerHTML = html;
+  }
+  
+  function renderTopVendors(data) {
+    const vendors = data.topVendors || [];
+    
+    let html = '';
+    vendors.slice(0, 5).forEach((v, i) => {
+      const amount = v.amount || 0;
+      const vendor = v.vendor || 'Unknown Vendor';
+      const border = i > 0 ? 'border-t border-slate-700' : '';
+      html += `<div class="flex items-center justify-between py-4 ${border}"><div><div class="font-semibold text-white">${vendor}</div><div class="text-sm text-slate-400">Rank #${i + 1}</div></div><div class="text-right"><div class="font-bold text-cyan-400">RM ${amount.toLocaleString()}</div></div></div>`;
+    });
+    
+    document.getElementById('top-vendors').innerHTML = html;
+  }
+  
+  loadDashboard();
+</script>
 </body>
 </html>
