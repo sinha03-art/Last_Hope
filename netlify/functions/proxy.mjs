@@ -1,318 +1,318 @@
 /**
- * Renovation Project Hub proxy (ESM)
- * - GET: Aggregates KPIs, alerts, cashflow, gate aggregates, top vendors, config
- * - POST: { type: 'summary' | 'suggestion', data: {...} } → Gemini text
- *
- * Env vars: NOTION_API_KEY, MILESTONES_DB_ID, DELIVERABLES_DB_ID, PAYMENTS_DB_ID, CONFIG_DB_ID
- * Optional: GEMINI_API_KEY
+ * JOOBIN Renovation Hub Proxy v6.3.0
+ * Returns dashboard-compatible field names
  */
+
 const {
   GEMINI_API_KEY,
   NOTION_API_KEY,
+  NOTION_BUDGET_DB_ID,
+  NOTION_ACTUALS_DB_ID,
   MILESTONES_DB_ID,
   DELIVERABLES_DB_ID,
   PAYMENTS_DB_ID,
+  VENDOR_REGISTRY_DB_ID,
   CONFIG_DB_ID,
 } = process.env;
 
 const NOTION_VERSION = '2022-06-28';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
-const NOTION_DB_QUERY_URL = (dbId) => `https://api.notion.com/v1/databases/${dbId}/query`;
-const GEMINI_URL = (model, key) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-
-const baseHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Cache-Control': 'no-store',
+// Notion API helpers
+const notionHeaders = () => ({
+  'Authorization': `Bearer ${NOTION_API_KEY}`,
+  'Notion-Version': NOTION_VERSION,
   'Content-Type': 'application/json',
-};
+});
 
-// Helpers
-function ymKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
-function norm(s = '') { return String(s).trim().toLowerCase(); }
-
-// Canonical mapping: map “g2” → “G2 Schematic”, etc.
-const CANON_GATE = [
-  ['G1 Concept', ['g1', 'g1 concept', 'concept']],
-  ['G2 Schematic', ['g2', 'g2 schematic', 'schematic']],
-  ['G3 Design Development', ['g3', 'g3 design development', 'design development', 'dd']],
-  ['G4 Authority Submission', ['g4', 'g4 authority submission', 'authority']],
-  ['G5 Construction Documentation', ['g5', 'g5 construction documentation', 'cd']],
-  ['G6 Design Close‑out', ['g6', 'g6 design close‑out', 'close-out', 'closeout']],
-];
-function canonGate(label = '') {
-  const s = norm(label);
-  for (const [canon, aliases] of CANON_GATE) if (aliases.includes(s)) return canon;
-  if (/^g[1-6]\s/.test(s)) return label; // already like "G3 Design ..."
-  return label || 'Uncategorized';
-}
-
-// Notion + Gemini
-async function callGemini(prompt) {
-  if (!GEMINI_API_KEY) return 'AI summary is unavailable (no API key configured).';
-  const res = await fetch(GEMINI_URL(GEMINI_MODEL, GEMINI_API_KEY), {
+async function queryNotionDB(dbId, filter = {}) {
+  const url = `https://api.notion.com/v1/databases/${dbId}/query`;
+  const body = { filter, page_size: 100 };
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    headers: notionHeaders(),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Gemini ${res.status}: ${text.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!res.ok) throw new Error(`Notion API error: ${res.status}`);
+  return res.json();
 }
 
-async function queryNotionDB(databaseId, filter, sorts) {
-  const baseBody = {};
-  if (filter && Object.keys(filter).length) baseBody.filter = filter;
-  if (sorts && sorts.length) baseBody.sorts = sorts;
+// Extract property values
+function getProp(page, propName) {
+  const prop = page.properties[propName];
+  if (!prop) return null;
+  
+  switch (prop.type) {
+    case 'title':
+      return prop.title?.[0]?.plain_text || '';
+    case 'rich_text':
+      return prop.rich_text?.[0]?.plain_text || '';
+    case 'number':
+      return prop.number || 0;
+    case 'select':
+      return prop.select?.name || '';
+    case 'multi_select':
+      return prop.multi_select?.map(s => s.name) || [];
+    case 'status':
+      return prop.status?.name || '';
+    case 'date':
+      return prop.date?.start || null;
+    case 'formula':
+      return prop.formula?.number || 0;
+    case 'relation':
+      return prop.relation?.map(r => r.id) || [];
+    default:
+      return null;
+  }
+}
 
-  const headers = {
-    Authorization: `Bearer ${NOTION_API_KEY}`,
-    'Notion-Version': NOTION_VERSION,
-    'Content-Type': 'application/json',
+// Vendor trade lookup cache
+const vendorTradeCache = {};
+
+async function getVendorTrade(vendorName) {
+  if (vendorTradeCache[vendorName]) return vendorTradeCache[vendorName];
+  
+  try {
+    const result = await queryNotionDB(VENDOR_REGISTRY_DB_ID, {
+      property: 'Company_Name',
+      title: { equals: vendorName }
+    });
+    
+    if (result.results.length > 0) {
+      const trade = getProp(result.results[0], 'Trade Specialization');
+      vendorTradeCache[vendorName] = trade || '—';
+      return vendorTradeCache[vendorName];
+    }
+  } catch (err) {
+    console.error(`Vendor trade lookup failed for ${vendorName}:`, err);
+  }
+  
+  vendorTradeCache[vendorName] = '—';
+  return '—';
+}
+
+// Main GET handler
+async function handleGet() {
+  // Query all databases in parallel
+  const [budgetData, actualsData, milestonesData, deliverablesData, configData] = 
+    await Promise.all([
+      queryNotionDB(NOTION_BUDGET_DB_ID),
+      queryNotionDB(NOTION_ACTUALS_DB_ID),
+      queryNotionDB(MILESTONES_DB_ID),
+      queryNotionDB(DELIVERABLES_DB_ID),
+      queryNotionDB(CONFIG_DB_ID),
+    ]);
+
+  // Calculate budget from Notion_Budget (sum of Subtotal formula)
+  const budgetMYR = budgetData.results.reduce((sum, page) => {
+    return sum + (getProp(page, 'Subtotal (Formula)') || 0);
+  }, 0);
+
+  // Calculate paid from Notion_Actuals (sum where status = "Paid")
+  const paidMYR = actualsData.results.reduce((sum, page) => {
+    const status = getProp(page, 'Status');
+    const amount = getProp(page, 'Paid (MYR)') || 0;
+    return status === 'Paid' ? sum + amount : sum;
+  }, 0);
+
+  const remainingMYR = budgetMYR - paidMYR;
+
+  // Deliverables counts
+  const deliverablesTotal = deliverablesData.results.length;
+  const deliverablesApproved = deliverablesData.results.filter(page => {
+    return getProp(page, 'Status') === 'Approved';
+  }).length;
+
+  // Milestones at risk
+  const milestonesAtRisk = milestonesData.results.filter(page => {
+    return getProp(page, 'Risk_Status') === 'At Risk';
+  }).length;
+
+  // KPIs with dashboard-compatible field names
+  const kpis = {
+    budgetMYR: Math.round(budgetMYR),
+    paidMYR: Math.round(paidMYR),
+    remainingMYR: Math.round(remainingMYR),
+    deliverablesApproved,
+    deliverablesTotal,
+    paidVsBudget: budgetMYR > 0 ? paidMYR / budgetMYR : 0,
+    deliverablesProgress: deliverablesTotal > 0 ? deliverablesApproved / deliverablesTotal : 0,
+    milestonesAtRisk,
   };
 
-  let results = [];
-  let start_cursor;
-  do {
-    const res = await fetch(NOTION_DB_QUERY_URL(databaseId), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ...baseBody, start_cursor }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      console.error(`Notion error for DB ${databaseId}: ${res.status} ${text}`);
-      throw new Error(`Notion ${res.status}`);
-    }
-    const data = await res.json();
-    results = results.concat(data.results || []);
-    start_cursor = data.has_more ? data.next_cursor : undefined;
-  } while (start_cursor);
+  // Gates with renamed fields (id → gate, required → total)
+  const REQUIRED_BY_GATE = configData.results.length > 0 
+    ? JSON.parse(getProp(configData.results[0], 'REQUIRED_BY_GATE') || '{}')
+    : {};
 
-  return { results };
+  const gates = Object.keys(REQUIRED_BY_GATE).map(gateName => {
+    const requiredItems = REQUIRED_BY_GATE[gateName] || [];
+    const approved = deliverablesData.results.filter(page => {
+      const title = getProp(page, 'Title');
+      const status = getProp(page, 'Status');
+      return requiredItems.includes(title) && status === 'Approved';
+    }).length;
+
+    return {
+      gate: gateName,  // renamed from 'id'
+      total: requiredItems.length,  // renamed from 'required'
+      approved,
+      gateApprovalRate: requiredItems.length > 0 ? approved / requiredItems.length : 0,
+    };
+  });
+
+  // Top Vendors with renamed fields and trade lookup
+  const vendorPayments = {};
+  actualsData.results.forEach(page => {
+    const vendor = getProp(page, 'Vendor') || 'Unknown';
+    const amount = getProp(page, 'Paid (MYR)') || 0;
+    const status = getProp(page, 'Status');
+    
+    if (status === 'Paid') {
+      vendorPayments[vendor] = (vendorPayments[vendor] || 0) + amount;
+    }
+  });
+
+  const topVendorsRaw = Object.entries(vendorPayments)
+    .map(([vendor, amount]) => ({ vendor, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  // Lookup trades in parallel
+  const topVendors = await Promise.all(
+    topVendorsRaw.map(async (v) => ({
+      name: v.vendor,  // renamed from 'vendor'
+      paid: Math.round(v.amount),  // renamed from 'amount'
+      trade: await getVendorTrade(v.vendor),  // NEW field
+    }))
+  );
+
+  // Milestones with status and risk fields
+  const milestones = milestonesData.results.map(page => {
+    const riskStatus = getProp(page, 'Risk_Status') || '';
+    return {
+      title: getProp(page, 'MilestoneTitle') || getProp(page, 'Title') || '',
+      phase: getProp(page, 'Phase') || '',
+      riskStatus,  // keep original
+      status: riskStatus,  // NEW field (duplicate for compatibility)
+      risk: riskStatus === 'At Risk' ? 'High' : 'Low',  // NEW field
+      budgetAllocated: getProp(page, 'Budget_Allocated') || 0,
+      actualSpend: getProp(page, 'Actual_Spend') || 0,
+    };
+  });
+
+  // Payments with recipient field
+  const payments = actualsData.results.map(page => {
+    const vendor = getProp(page, 'Vendor') || '';
+    return {
+      vendor,  // keep original
+      recipient: vendor,  // NEW field (duplicate for compatibility)
+      amount: getProp(page, 'Paid (MYR)') || 0,
+      status: getProp(page, 'Status') || '',
+      dueDate: getProp(page, 'Due_Date') || getProp(page, 'Paid Date') || null,
+    };
+  });
+
+  // Deliverables with owner mapping
+  const ownerMap = { 
+    solomon: 'Solomon', 
+    harminder: 'Harminder' 
+  };
+  
+  const deliverables = deliverablesData.results.map(page => {
+    const rawOwner = (getProp(page, 'Owner') || '').toLowerCase();
+    return {
+      title: getProp(page, 'Title') || '',
+      status: getProp(page, 'Status') || '',
+      gate: getProp(page, 'Gate') || '',
+      owner: ownerMap[rawOwner] || rawOwner || '',
+      submittedDate: getProp(page, 'Submitted_Date') || null,
+      approvedDate: getProp(page, 'Approved_Date') || null,
+    };
+  });
+
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kpis,
+      gates,
+      topVendors,
+      milestones,
+      payments,
+      deliverables,
+      timestamp: new Date().toISOString(),
+    }),
+  };
 }
 
-export const handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: baseHeaders };
+// Gemini AI summary (POST)
+async function callGemini(prompt) {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      },
+    }),
+  });
 
+  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No summary available.';
+}
+
+async function handlePost(body) {
+  const { kpis, alerts, milestones } = JSON.parse(body);
+  
+  const prompt = `You are a renovation project assistant. Summarize the following project status in 2-3 sentences:
+
+KPIs: Budget ${kpis.budgetMYR} MYR, Paid ${kpis.paidMYR} MYR, Remaining ${kpis.remainingMYR} MYR. Deliverables: ${kpis.deliverablesApproved}/${kpis.deliverablesTotal} approved.
+
+Alerts: ${alerts.length} active alerts.
+
+Milestones at risk: ${kpis.milestonesAtRisk}
+
+Provide a concise executive summary focusing on budget health, progress, and key risks.`;
+
+  const summary = await callGemini(prompt);
+  
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ summary }),
+  };
+}
+
+// Main handler
+exports.handler = async (event) => {
   try {
-    if (event.httpMethod === 'POST') {
-      let type, data;
-      try { ({ type, data } = JSON.parse(event.body || '{}')); }
-      catch { return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
-
-      if (type !== 'summary' && type !== 'suggestion') {
-        return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: 'Invalid request type' }) };
-      }
-
-      const k = data?.kpis || {};
-      const kpiText = `Paid vs Budget: ${((k.paidVsBudget || 0) * 100).toFixed(1)}%, Deliverables: ${((k.deliverablesProgress || 0) * 100).toFixed(0)}% approved, Milestones At Risk: ${k.milestonesAtRisk || 0}, Next 30d Due: RM ${(k.next30?.amount || 0).toLocaleString('en-MY')} (${k.next30?.count || 0} items).`;
-      const milestonesText = (data?.milestones || []).slice(0, 10).map(m => `- ${m.title} (Risk: ${m.riskStatus}, Financials: ${m.indicator})`).join('\n');
-
-      const prompt = type === 'summary'
-        ? `Act as a renovation PM. Based on the live data, write a concise weekly update with Wins, Risks, and Next Actions.
-Key Metrics: ${kpiText}
-Key Milestones:
-${milestonesText}`
-        : `Act as a senior construction PM. A milestone is "At Risk". Provide 3 concise actions.
-Milestone: "${data?.title}"
-Financial: ${data?.indicator}
-Issue: "${data?.gateIssue}"`;
-
-      const text = await callGemini(prompt);
-      return { statusCode: 200, headers: baseHeaders, body: JSON.stringify({ text }) };
-    }
-
     if (event.httpMethod === 'GET') {
-      const missing = ['MILESTONES_DB_ID', 'DELIVERABLES_DB_ID', 'PAYMENTS_DB_ID', 'CONFIG_DB_ID', 'NOTION_API_KEY']
-        .filter(k => !process.env[k]);
-      if (missing.length) {
-        return { statusCode: 500, headers: baseHeaders, body: JSON.stringify({ error: 'Missing environment variables', details: missing }) };
-      }
-
-      const [milestonesData, deliverablesData, paymentsData, configData] = await Promise.all([
-        queryNotionDB(MILESTONES_DB_ID, undefined, [{ property: 'StartDate', direction: 'ascending' }]),
-        queryNotionDB(DELIVERABLES_DB_ID),
-        queryNotionDB(PAYMENTS_DB_ID),
-        queryNotionDB(CONFIG_DB_ID),
-      ]);
-
-      // Map records
-      const milestones = (milestonesData.results || []).map(p => ({
-        id: p.id,
-        title: p.properties?.MilestoneTitle?.title?.[0]?.plain_text ?? p.properties?.Name?.title?.[0]?.plain_text ?? 'Untitled',
-        riskStatus: p.properties?.Risk?.status?.name ?? 'OK',
-        phase: canonGate(p.properties?.Phase?.select?.name ?? 'Uncategorized'),
-        progress: p.properties?.Progress?.number ?? 0,
-        indicator: p.properties?.Indicator?.formula?.string ?? p.properties?.Indicator?.rich_text?.[0]?.plain_text ?? '🟢 OK',
-        url: p.url,
-      }));
-
-      const deliverables = (deliverablesData.results || []).map(p => ({
-        id: p.id,
-        title: p.properties?.['Deliverable Name']?.title?.[0]?.plain_text ?? p.properties?.Name?.title?.[0]?.plain_text ?? 'Untitled',
-        gate: canonGate(p.properties?.Gate?.select?.name ?? 'Uncategorized'),
-        status: p.properties?.Status?.select?.name ?? 'Missing',
-        assignees: (p.properties?.Owner?.people || []).map(x => x.name || x.person?.email || x.id),
-        url: p.url,
-      }));
-
-      const payments = (paymentsData.results || []).map(p => ({
-        id: p.id,
-        title: p.properties?.['Payment For']?.title?.[0]?.plain_text ?? p.properties?.Name?.title?.[0]?.plain_text ?? 'Untitled',
-        vendor: p.properties?.Vendor?.rich_text?.[0]?.plain_text ?? p.properties?.Vendor?.select?.name ?? p.properties?.Vendor?.title?.[0]?.plain_text ?? 'N/A',
-        amount: p.properties?.['Amount (RM)']?.number ?? 0,
-        status: p.properties?.Status?.select?.name ?? 'Outstanding',
-        dueDate: p.properties?.DueDate?.date?.start ?? null,
-        paidDate: p.properties?.PaidDate?.date?.start ?? null,
-        url: p.url,
-      }));
-
-      // Config key-value map
-      const config = (configData.results || []).reduce((acc, p) => {
-        const key = p.properties?.Key?.title?.[0]?.plain_text ?? p.properties?.Name?.title?.[0]?.plain_text ?? '';
-        const value = p.properties?.Value?.rich_text?.[0]?.plain_text ?? p.properties?.Value?.select?.name ?? p.properties?.Value?.title?.[0]?.plain_text ?? '';
-        if (key) acc[key] = value;
-        return acc;
-      }, {});
-
-      // KPIs
-      const totalBudget = (milestonesData.results || []).reduce((s, p) => s + (p.properties?.['Budget (RM)']?.number ?? 0), 0);
-      const totalPaid = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.amount || 0), 0);
-
-      const now = new Date(), in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const overdue = payments
-        .filter(p => p.status !== 'Paid' && p.dueDate && new Date(p.dueDate) < now)
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-      const upcoming = payments
-        .filter(p => p.status !== 'Paid' && p.dueDate && new Date(p.dueDate) >= now && new Date(p.dueDate) <= in30)
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-      const next30 = { amount: upcoming.reduce((s, p) => s + (p.amount || 0), 0), count: upcoming.length, items: upcoming.slice(0, 50) };
-
-      const deliverablesIssues = deliverables.filter(d => d.status === 'Missing' || d.status === 'Rejected');
-      const milestonesRisk = milestones.filter(m => m.riskStatus === 'At Risk');
-
-      const cashAgg = {};
-      payments.forEach(p => {
-        const due = p.dueDate ? new Date(p.dueDate) : null;
-        if (due) { const k = ymKey(due); cashAgg[k] = cashAgg[k] || { ym: k, scheduled: 0, paid: 0 }; cashAgg[k].scheduled += (p.amount || 0); }
-        const paid = p.paidDate ? new Date(p.paidDate) : null;
-        if (paid) { const k2 = ymKey(paid); cashAgg[k2] = cashAgg[k2] || { ym: k2, scheduled: 0, paid: 0 }; cashAgg[k2].paid += (p.amount || 0); }
-      });
-      const cashflow = Object.values(cashAgg).sort((a, b) => a.ym.localeCompare(b.ym, 'en', { numeric: true }));
-
-      // Gate metrics (base)
-      const gatesIndex = {};
-      function ensureGate(id) {
-        gatesIndex[id] = gatesIndex[id] || { id, required: 0, approved: 0, submitted: 0, blocked: 0, milestonesComplete: 0 };
-        return gatesIndex[id];
-      }
-      deliverables.forEach(d => {
-        const gi = ensureGate(d.gate || 'Uncategorized');
-        gi.required += 1;
-        if (d.status === 'Approved') gi.approved += 1;
-        else if (d.status === 'Submitted') gi.submitted += 1;
-        else if (d.status === 'Rejected' || d.status === 'Missing') gi.blocked += 1;
-      });
-      milestones.forEach(m => {
-        const gi = ensureGate(m.phase || 'Uncategorized');
-        const complete = (typeof m.progress === 'number' && m.progress >= 100) || String(m.indicator || '').toLowerCase().includes('complete');
-        if (complete) gi.milestonesComplete += 1;
-      });
-      let gates = Object.values(gatesIndex).map(gi => ({
-        ...gi,
-        gateApprovalRate: gi.required > 0 ? gi.approved / gi.required : 0,
-        gateSubmissionRate: gi.required > 0 ? (gi.approved + gi.submitted) / gi.required : 0,
-      }));
-
-      // ----- ENFORCEMENT: REQUIRED_BY_GATE / PRECONSTRUCTION -----
-      function toSetLower(arr) { const s = new Set(); (arr || []).forEach(x => s.add(norm(x))); return s; }
-      function deliveredApprovedIndexByTitle(delivs) { const s = new Set(); (delivs || []).forEach(d => { if (d.status === 'Approved') s.add(norm(d.title)); }); return s; }
-
-      let reqConfigRaw = {};
-      try { reqConfigRaw = JSON.parse(config['REQUIRED_BY_GATE'] || config['Gate Requirements'] || '{}'); } catch {}
-      const REQUIRED_BY_GATE = reqConfigRaw || {};
-      const PRE_REQ = toSetLower(REQUIRED_BY_GATE.PreconstructionRequired || []);
-      const approvedTitles = deliveredApprovedIndexByTitle(deliverables);
-
-      function gateAllRequiredApproved(gate) {
-        const req = REQUIRED_BY_GATE[gate] || [];
-        if (req.length === 0) return false;
-        return req.every(title => approvedTitles.has(norm(title)));
-      }
-      const preconstructionOK = PRE_REQ.size > 0 && Array.from(PRE_REQ).every(title => approvedTitles.has(title));
-
-      const gatesStrict = (gates || []).map(gi => {
-        const allApproved = gateAllRequiredApproved(gi.id);
-        return { ...gi, completeStrict: allApproved, unlocked: allApproved && gi.blocked === 0 };
-      });
-
-      function inferGateForPayment(p) {
-        const t = norm(p.title);
-        if (t.includes('foshan') || t.includes('tranche')) return 'G5 Construction Documentation';
-        if (t.includes('permit') || t.includes('mbsa')) return 'G4 Authority Submission';
-        if (t.includes('fer') || t.includes('designer') || t.includes('claim')) return 'G2 Schematic';
-        return 'Uncategorized';
-      }
-      function computeBlockedReasons(p) {
-        const reasons = [];
-        if (!preconstructionOK) reasons.push('Pre‑construction prerequisites not fully approved');
-        const g = inferGateForPayment(p);
-        if (g !== 'Uncategorized' && !gateAllRequiredApproved(g)) reasons.push(`Gate requirements not fully approved (${g})`);
-        return reasons;
-      }
-      const paymentsWithFlags = (payments || []).map(p => {
-        const blockedReasons = computeBlockedReasons(p);
-        const payable = blockedReasons.length === 0;
-        return { ...p, payable, blockedReasons };
-      });
-
-      const kpis = {
-        paidVsBudget: totalBudget > 0 ? totalPaid / totalBudget : 0,
-        deliverablesProgress: deliverables.length > 0 ? (deliverables.filter(d => d.status === 'Approved').length / deliverables.length) : 0,
-        milestonesAtRisk: milestonesRisk.length,
-        next30,
-      };
-      const alerts = { paymentsOverdue: overdue, paymentsUpcoming: upcoming, deliverablesIssues, milestonesRisk };
-
-      const topVendors = Object.entries(
-        payments.reduce((m, p) => {
-          if (p.status !== 'Paid') {
-            const key = p.vendor || 'Unknown';
-            m[key] = (m[key] || 0) + (p.amount || 0);
-          }
-          return m;
-        }, {})
-      ).map(([vendor, amount]) => ({ vendor, amount }))
-       .sort((a, b) => b.amount - a.amount)
-       .slice(0, 5);
-
+      return await handleGet();
+    } else if (event.httpMethod === 'POST') {
+      return await handlePost(event.body);
+    } else {
       return {
-        statusCode: 200,
-        headers: baseHeaders,
-        body: JSON.stringify({
-          milestones,
-          deliverables,
-          payments: paymentsWithFlags,
-          kpis,
-          alerts,
-          cashflow,
-          gates: gatesStrict,
-          topVendors,
-          config,
-        }),
+        statusCode: 405,
+        body: JSON.stringify({ error: 'Method not allowed' }),
       };
     }
-
-    return { statusCode: 405, headers: baseHeaders, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   } catch (error) {
-    console.error('Server Error:', error);
-    return { statusCode: 500, headers: baseHeaders, body: JSON.stringify({ error: 'An internal server error occurred.', details: error.message }) };
+    console.error('Proxy error:', error);
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      }),
+    };
   }
 };
