@@ -1,522 +1,493 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Project Dashboard</title>
-<!-- Favicon -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏠%3C/text%3E%3C/svg%3E">
-<!-- Fonts + Tailwind -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Chart.js (UMD) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
-<style>
-:root {
-  --bg: #f1f3f5;
-  --panel: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --brand: #e11d48;
-  --nav: #0f2133;
-  --nav-ink: #e2e8f0;
-}
-.dark {
-  --bg: #0b1220;
-  --panel: #0f172a;
-  --ink: #e5e7eb;
-  --muted: #93a3b8;
-  --nav: #0b1220;
-  --nav-ink: #e5e7eb;
-}
-html, body { height: 100%; }
-body {
-  font-family: "Lato", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  background: var(--bg);
-  color: var(--ink);
-  margin: 0;
-}
-.pill {
-  font-weight: 800;
-  font-size: .625rem;
-  line-height: 1;
-  padding: .25rem .4rem;
-  border-radius: 999px;
-  background: #ef4444;
-  color: #fff;
-}
-.nav-sep {
-  box-shadow: inset 0 -1px 0 0 rgba(255,255,255,0.06);
-}
-.hr {
-  height: 1px;
-  background: #e5e7eb;
-}
-.top-shadow {
-  box-shadow: 0 1px 0 rgba(15,33,51,.06);
-}
-.kpi {
-  border: 1px solid #e5e7eb;
-  border-radius: .75rem;
-  padding: 1rem;
-  background: var(--panel);
-}
-.card {
-  background: var(--panel);
-  border: 1px solid #e5e7eb;
-  border-radius: .75rem;
-}
-/* Sidebar video wrapper (16:9) */
-.sidebar-video {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  border-radius: .5rem;
-  margin-bottom: .75rem;
-  padding-top: 56.25%;
-}
-.sidebar-video iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-/* Chart area */
-#cashflowBox {
-  height: 220px;
-}
-/* Badges + reasons */
-.badge {
-  display: inline-block;
-  font-size: .65rem;
-  font-weight: 700;
-  line-height: 1;
-  padding: .2rem .45rem;
-  border-radius: 999px;
-  margin-left: .5rem;
-}
-.badge-ok {
-  background: #d1fae5;
-  color: #065f46;
-}
-.badge-warn {
-  background: #fde68a;
-  color: #92400e;
-}
-.badge-stop {
-  background: #fee2e2;
-  color: #991b1b;
-}
-.reason {
-  display: block;
-  font-size: .72rem;
-  color: #475569;
-  margin-top: .15rem;
-}
-/* GO / NO-GO */
-.gochip {
-  background: #d1fae5;
-  color: #065f46;
-  padding: .5rem 1rem;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: .875rem;
-}
-.nogochip {
-  background: #fee2e2;
-  color: #991b1b;
-  padding: .5rem 1rem;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: .875rem;
-}
-.gocard {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
-}
-.nogocard {
-  background: #fef2f2;
-  border-color: #fca5a5;
-}
-</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JOOBIN Command Center</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏗️%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --bg: #0f1723; --panel: #1a2332; --border: #2a3544; --text: #e5e7eb; --muted: #9ca3af; --brand: #e11d48; --neon: #00ffff; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { font-family: "Lato", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; }
+    .neon-header { color: var(--neon); text-shadow: 0 0 10px var(--neon), 0 0 20px var(--neon); }
+    @keyframes blink { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.3; } }
+    .blink { animation: blink 2s infinite; }
+    .metric-value { font-size: 2rem; font-weight: 900; line-height: 1; }
+    .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem; }
+    .section-divider { border-top: 1px solid var(--border); margin: 1rem 0; padding-top: 1rem; }
+    .alert-item { padding: 0.5rem 0; font-size: 0.875rem; }
+    .vendor-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .vendor-row:last-child { border-bottom: none; }
+    .badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-weight: 700; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-overdue { background: #991b1b; color: #fee2e2; }
+    .risk-red { color: #ef4444; font-weight: 700; }
+    .gate-step { display: flex; align-items: center; gap: 0.5rem; }
+    .gate-circle { width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.875rem; border: 2px solid; }
+    .gate-complete { background: #065f46; border-color: #10b981; color: #d1fae5; }
+    .gate-current { background: #1e40af; border-color: #3b82f6; color: #dbeafe; box-shadow: 0 0 20px #3b82f6; }
+    .gate-pending { background: var(--panel); border-color: var(--border); color: var(--muted); }
+    .gate-line { height: 2px; flex: 1; background: var(--border); }
+    .gate-line-complete { background: #10b981; }
+    #summary { line-height: 1.6; }
+    #summary h3 { font-size: 1rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
+    #summary ul { margin: 0.5rem 0; padding-left: 1.5rem; }
+    #summary li { margin: 0.25rem 0; }
+    #loading { text-align: center; padding: 2rem; color: var(--muted); }
+    .dossier { font-size: 0.75rem; line-height: 1.6; }
+    .dossier strong { color: var(--neon); }
+    .dossier h3 { font-size: 0.875rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
+  </style>
 </head>
-<body>
-<div class="min-h-screen grid grid-cols-[260px_1fr]">
-  <!-- Sidebar -->
-  <aside class="bg-[var(--nav)] text-[var(--nav-ink)]">
-    <div class="p-6">
-      <!-- 16:9 responsive video -->
-      <div class="sidebar-video">
-        <iframe
-          src="https://player.vimeo.com/video/1121406919"
-          title="JOOBIN Residence — 1‑minute overview video"
-          frameborder="0"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowfullscreen
-          loading="lazy">
-        </iframe>
+<body class="flex">
+  <aside class="w-80 border-r border-gray-700 p-6 overflow-y-auto">
+    <h1 class="text-2xl font-black mb-6 neon-header">JOOBIN</h1>
+    <nav class="space-y-1 mb-8">
+      <a href="/" class="block px-3 py-2 rounded bg-gray-800 font-bold">Dashboard</a>
+      <a href="/deliverables.html" class="block px-3 py-2 rounded hover:bg-gray-800">Deliverables</a>
+    </nav>
+    <div class="space-y-6">
+      <div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3">PROPERTY</h2>
+        <p class="text-sm leading-relaxed">House-4 @ Sri Suria<br>Bukit Rimau, Shah Alam<br>20250602</p>
       </div>
-      <div class="leading-tight">
-        <p class="font-black tracking-wide uppercase">JOOBIN</p>
-        <p class="text-[10px] opacity-70">Assets</p>
+      <div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3">DEMO</h2>
+        <div class="relative" style="padding-top: 56.25%;">
+          <iframe src="https://player.vimeo.com/video/1121406919?badge=0&autopause=0&player_id=0&app_id=58479&autoplay=1&loop=1&muted=1" 
+                  frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write" 
+                  class="absolute top-0 left-0 w-full h-full rounded"
+                  title="JOOBIN Command Center Demo"></iframe>
+        </div>
       </div>
-      <!-- Property write-up -->
-      <div class="mt-3 text-[13px] text-white">
-        <p><strong>Project:</strong> JOOBIN Residence</p>
-        <p><strong>Status:</strong> 3D design stage. Construction not started.</p>
-        <p class="text-[12px] opacity-70">The renovation significantly expands livable square footage via structural additions on all levels, adds a roof terrace and covered car porch, enlarges key suites, modernizes the facade, and plans rooftop solar zones. Circulation improves with wider hallways, and interiors gain functional upgrades including a reimagined laundry, kitchen, library, and outdoor spaces.</p>
+      <div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3">DOSSIER</h2>
+        <div class="dossier">
+          <h3>GENERAL WORKS RENOVATION OVERVIEW</h3>
+          <p><strong>Key Additions (Highlighted in Pink – Proposed Plan Sets):</strong></p>
+          <ul class="text-xs space-y-1 ml-4">
+            <li>Construction of <strong>new roof structures</strong> and <strong>RC roof covers</strong></li>
+            <li>Significant <strong>extensions</strong> at the <strong>rear and sides</strong>, including master suite and utility areas</li>
+            <li><strong>Expanded terraces and balconies</strong>, with landscaped integration</li>
+            <li>Introduction of <strong>covered car porch</strong> and redesigned <strong>hardscape layout</strong></li>
+            <li>Multiple <strong>new openings</strong>: timber sliding doors, aluminum-glass windows (W4-W6), and select demolished existing openings</li>
+          </ul>
+          
+          <h3>🏗️ BY LEVEL – SCOPE BREAKDOWN</h3>
+          
+          <p><strong>GROUND FLOOR</strong></p>
+          <p class="text-xs"><strong>Retained:</strong> Guest Room, Dining, Living, Kitchen, and general courtyard layout.</p>
+          <p class="text-xs"><strong>Modified:</strong></p>
+          <ul class="text-xs space-y-1 ml-4">
+            <li><strong>Parents Room</strong> expanded with a new rear wall</li>
+            <li><strong>Laundry Room</strong> added with outdoor drying area</li>
+            <li><strong>New Covered Car Porch</strong> with extended boundary wall</li>
+            <li><strong>Utility/Wet Kitchen</strong> expanded and reconnected</li>
+            <li><strong>Powder Room</strong> relocated and reconfigured</li>
+            <li><strong>Courtyard</strong> opened with integrated landscaping</li>
+          </ul>
+          <p class="text-xs"><strong>Openings:</strong> Timber sliding doors, new W4–W6 windows, demolition of some original openings.</p>
+          
+          <p><strong>FIRST FLOOR</strong></p>
+          <ul class="text-xs space-y-1 ml-4">
+            <li><strong>Master Suite</strong> expanded to include lounge + walk-in</li>
+            <li><strong>Bedroom 1</strong> resized for larger beds</li>
+            <li><strong>Library/Study</strong> added (replaces multipurpose)</li>
+            <li><strong>Balcony/Terrace</strong> widened with landscaping</li>
+            <li><strong>New hallway</strong> connection improves flow</li>
+          </ul>
+          
+          <p><strong>ROOF PLAN</strong></p>
+          <ul class="text-xs space-y-1 ml-4">
+            <li><strong>RC Flat Roof</strong> retained + extended</li>
+            <li><strong>New Roof Terrace</strong> added</li>
+            <li><strong>Solar Panels</strong> confirmed</li>
+            <li><strong>New RC Roof Covers</strong> for additions</li>
+          </ul>
+          
+          <p><strong>ELEVATIONS & SECTIONS</strong></p>
+          <ul class="text-xs space-y-1 ml-4">
+            <li><strong>Front:</strong> Covered porch, feature wall, updated materials</li>
+            <li><strong>Rear:</strong> Balcony, glass upgrades, shading added</li>
+            <li><strong>Sides:</strong> Volume extensions, light/air openings</li>
+            <li><strong>Sections A-A / B-B:</strong> Slab extensions, raised floor levels, roof parapet changes</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3">SUBMIT DOCS</h2>
+        <iframe src="" 
+                class="w-full h-96 rounded border border-gray-700" 
+                title="Designer Submission Portal"></iframe>
       </div>
     </div>
-    <nav class="mt-4 text-sm">
-      <div class="px-6 py-3 text-[.8rem] tracking-widest uppercase opacity-60">Pages</div>
-      <ul>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Dosier</a>
-        </li>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="/deliverables.html">Gate Deliverables<span class="pill">New</span></a>
-        </li>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Project Stage</a>
-        </li>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Media<span class="pill">New</span></a>
-        </li>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Tasks</a>
-        </li>
-        <li class="nav-sep">
-          <a class="flex items-center justify-between px-6 py-3 hover:bg-white/5" href="#">Forms</a>
-        </li>
-      </ul>
-    </nav>
   </aside>
-
-  <!-- Main -->
-  <div class="flex flex-col">
-    <header class="card top-shadow">
-      <div class="h-14 flex items-center justify-between px-6">
-        <p class="font-black tracking-wide">Dashboard</p>
-        <div class="flex items-center gap-3">
-          <button id="themeToggle" class="text-xs px-3 py-1 rounded border border-slate-300/50 hover:bg-slate-50 dark:hover:bg-slate-800">Dark</button>
-          <div class="text-xs opacity-70">JOOBIN</div>
-        </div>
-      </div>
-    </header>
-
-    <!-- GO / NO-GO Banner -->
-    <section id="goNoGo" class="mx-6 mt-4">
-      <div id="goNoGoCard" class="card p-4 flex items-center justify-between">
+  <main class="flex-1 overflow-y-auto p-6">
+    <div id="loading">Loading dashboard...</div>
+    <div id="app" style="display:none;">
+      <header class="mb-6 flex items-center justify-between">
         <div>
-          <p class="text-xs uppercase text-[var(--muted)]">Pre‑construction readiness</p>
-          <p id="goNoGoMsg" class="text-lg font-bold">Checking…</p>
-          <p id="goNoGoReason" class="text-xs text-[var(--muted)] mt-1"></p>
+          <h2 class="text-3xl font-black neon-header">Project Dashboard</h2>
+          <p class="text-sm text-gray-400 mt-1">Live KPIs, alerts, gate progress, and vendor rankings</p>
         </div>
-        <div id="goNoGoChip" class="gochip">—</div>
+        <a href="" target="_blank" rel="noopener noreferrer"
+           class="px-4 py-2 rounded bg-rose-600 text-white text-sm font-bold hover:bg-rose-700">📤 Upload Deliverable</a>
+      </header>
+      <div id="goNoGoBanner" style="display:none;" class="card mb-6 flex items-center justify-between">
+        <div>
+          <div class="text-sm font-bold text-gray-400">PROJECT GO/NO-GO</div>
+          <div id="goNoGoMessage" class="text-lg font-bold mt-1"></div>
+        </div>
+        <div id="goNoGoChip"></div>
       </div>
-    </section>
-
-    <main class="p-6 space-y-6">
-      <!-- KPIs -->
-      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div class="kpi">
-          <p class="text-xs uppercase text-[var(--muted)]">Paid vs Budget</p>
-          <p id="kpiPaidVsBudget" class="text-3xl font-black">0%</p>
-        </div>
-        <div class="kpi">
-          <p class="text-xs uppercase text-[var(--muted)]">Deliverables Approved</p>
-          <p id="kpiDeliverables" class="text-3xl font-black">0%</p>
-        </div>
-        <div class="kpi">
-          <p class="text-xs uppercase text-[var(--muted)]">Milestones At Risk</p>
-          <p id="kpiRisk" class="text-3xl font-black">0</p>
-        </div>
-        <div class="kpi">
-          <p class="text-xs uppercase text-[var(--muted)]">Next 30d Due</p>
-          <p id="kpiNext30" class="text-3xl font-black">RM 0</p>
-          <p id="kpiNext30Count" class="text-xs text-[var(--muted)] mt-1">0 items</p>
-        </div>
-      </section>
-
-      <!-- Attention Board + Cashflow -->
-      <section class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 lg:col-span-6 card p-6">
-          <h3 class="font-black tracking-wide mb-3">Attention Board</h3>
-          <p class="text-xs uppercase text-[var(--muted)] mb-2">Overdue payments</p>
-          <ul id="overdueList" class="space-y-2 text-sm"></ul>
-          <div class="hr my-5"></div>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div>
-              <p class="text-xs uppercase text-[var(--muted)] mb-2">Deliverable Issues</p>
-              <ul id="deliverableIssues" class="space-y-2 text-sm"></ul>
-            </div>
-            <div>
-              <p class="text-xs uppercase text-[var(--muted)] mb-2">Milestones At Risk</p>
-              <ul id="milestonesRisk" class="space-y-2 text-sm"></ul>
-            </div>
-          </div>
-        </div>
-        <div class="col-span-12 lg:col-span-6 card p-6">
-          <h3 class="font-black tracking-wide mb-3">Cashflow (Scheduled vs Paid)</h3>
-          <div id="cashflowBox" class="relative">
-            <canvas id="cashflowChart" height="220" style="width:100%;"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <!-- Gates + Vendors -->
-      <section class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 xl:col-span-8 card p-6">
-          <h3 class="font-black tracking-wide mb-3">Gate Progress</h3>
-          <div id="gatesWrap" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-        </div>
-        <div class="col-span-12 xl:col-span-4 card p-6">
-          <h3 class="font-black tracking-wide mb-3">Top Vendors Outstanding</h3>
-          <ul id="topVendors" class="space-y-2 text-sm"></ul>
-        </div>
-      </section>
-
-      <!-- Weekly AI Summary -->
-      <section class="card p-6">
-        <div class="flex items-center justify-between">
-          <h3 class="font-black tracking-wide">Weekly AI Summary</h3>
-          <button id="genSummary" class="px-4 py-2 bg-rose-600 text-white font-bold rounded hover:bg-rose-700">Generate</button>
-        </div>
-        <div id="summaryOut" class="mt-4 text-sm whitespace-pre-line"></div>
-      </section>
-
-      <!-- Status line -->
-      <div id="status" class="px-1 text-xs text-rose-600"></div>
-    </main>
-  </div>
-</div>
-
-<script>
-// THEME
-const btn = document.getElementById('themeToggle');
-function applyTheme(t) {
-  document.body.classList.toggle('dark', t==='dark');
-  localStorage.setItem('theme', t);
-  btn.textContent = t==='dark' ? 'Light' : 'Dark';
-}
-applyTheme(localStorage.getItem('theme') || 'light');
-btn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light':'dark'));
-
-// HELPERS
-const fmtMYR = v => (v||0).toLocaleString('en-MY', { style:'currency', currency:'MYR', maximumFractionDigits:0 });
-const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—';
-let dataCache = null;
-function li(html) {
-  const el=document.createElement('li');
-  el.className='flex justify-between gap-3';
-  el.innerHTML=html;
-  return el;
-}
-
-// GO / NO-GO
-function renderGoNoGo(a) {
-  const card = document.getElementById('goNoGoCard');
-  const chip = document.getElementById('goNoGoChip');
-  const msg  = document.getElementById('goNoGoMsg');
-  const why  = document.getElementById('goNoGoReason');
-  const hasPreBlock = (list=[]) => list.some(p => Array.isArray(p.blockedReasons) && p.blockedReasons.some(r => r.toLowerCase().includes('pre‑construction')));
-  const preBlocked = hasPreBlock(a.paymentsOverdue||[]) || hasPreBlock(a.paymentsUpcoming||[]);
-  card.classList.remove('gocard','nogocard');
-  chip.classList.remove('gochip','nogochip');
-  if (preBlocked) {
-    card.classList.add('nogocard');
-    chip.classList.add('nogochip');
-    chip.textContent='NO‑GO';
-    msg.textContent='Pre‑construction prerequisites not fully approved';
-    why.textContent='Approve all mandatory items before work or payment proceeds.';
-  } else {
-    card.classList.add('gocard');
-    chip.classList.add('gochip');
-    chip.textContent='GO';
-    msg.textContent='Pre‑construction prerequisites satisfied';
-    why.textContent='You can proceed with scheduled work and pay Payable items only.';
-  }
-}
-
-// KPIs
-function renderKPIs(k) {
-  document.getElementById('kpiPaidVsBudget').textContent = (((k.paidVsBudget||0)*100).toFixed(1))+'%';
-  document.getElementById('kpiDeliverables').textContent = (((k.deliverablesProgress||0)*100).toFixed(0))+'%';
-  document.getElementById('kpiRisk').textContent = (k.milestonesAtRisk||0);
-  document.getElementById('kpiNext30').textContent = fmtMYR(k.next30?.amount||0);
-  document.getElementById('kpiNext30Count').textContent = (k.next30?.count||0)+' items';
-}
-
-// Attention Board
-function renderAlerts(a) {
-  const overdue = document.getElementById('overdueList');
-  overdue.innerHTML='';
-  (a.paymentsOverdue||[]).slice(0,8).forEach(p=>{
-    const blocked = p.payable === false;
-    const reasons = Array.isArray(p.blockedReasons) ? p.blockedReasons : [];
-    const badgeClass = blocked ? 'badge badge-stop' : 'badge badge-ok';
-    const badgeText = blocked ? 'Blocked' : 'Payable';
-    const reasonText = blocked && reasons.length ? reasons[0] : '';
-    const reasonTitle = reasons.length ? reasons.join(' • ') : '';
-    overdue.appendChild(li(`
-      <div class="min-w-0 flex-1">
-        <a href="${p.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400" title="${reasonTitle}">${p.title}</a>
-        <span class="${badgeClass}">${badgeText}</span>
-        ${reasonText ? `<span class="reason" title="${reasonTitle}">${reasonText}</span>` : ''}
+      
+      <div class="card mb-6">
+        <h3 class="text-lg font-bold mb-4 neon-header">📍 PROJECT STAGE</h3>
+        <div id="projectStage"></div>
       </div>
-      <div class="shrink-0 text-right">${fmtMYR(p.amount)}<br>${fmtDate(p.dueDate)}</div>
-    `));
-  });
-
-  const deliv = document.getElementById('deliverableIssues');
-  deliv.innerHTML='';
-  (a.deliverablesIssues||[]).slice(0,8).forEach(d=>{
-    deliv.appendChild(li(`
-      <a href="${d.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${d.title}</a>
-      <span>${d.status}</span>
-    `));
-  });
-
-  const risk = document.getElementById('milestonesRisk');
-  risk.innerHTML='';
-  (a.milestonesRisk||[]).slice(0,8).forEach(m=>{
-    risk.appendChild(li(`
-      <a href="${m.url}" target="_blank" class="truncate underline decoration-slate-300 hover:decoration-rose-400">${m.title}</a>
-      <span>${m.riskStatus}</span>
-    `));
-  });
-}
-
-// Cashflow
-let cashflowChart;
-function renderCashflow(cf) {
-  const el = document.getElementById('cashflowChart');
-  if (!el) return;
-  const data = Array.isArray(cf) ? cf.slice() : [];
-  if (cashflowChart) {
-    try { cashflowChart.destroy(); } catch(e){}
-    cashflowChart = null;
-  }
-  if (data.length === 0) {
-    const ctx = el.getContext('2d');
-    if (ctx) ctx.clearRect(0,0,el.width,el.height);
-    return;
-  }
-  const labels = data.map(r => r.ym);
-  const scheduled = data.map(r => r.scheduled || 0);
-  const paid = data.map(r => r.paid || 0);
-  cashflowChart = new Chart(el.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Scheduled', data: scheduled, backgroundColor: '#0f2133', borderRadius: 6 },
-        { label: 'Paid', data: paid, backgroundColor: '#e11d48', borderRadius: 6 }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: '#e5e7eb' } }
+      
+      <section id="kpis" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></section>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="card">
+          <h3 class="text-lg font-bold mb-4 neon-header blink">🚨 ATTENTION BOARD</h3>
+          <div id="alerts"></div>
+        </div>
+        <div class="card">
+          <h3 class="text-lg font-bold mb-4 neon-header">🏆 TOP 5 VENDORS</h3>
+          <div id="vendors"></div>
+        </div>
+      </div>
+      <div class="card mb-6">
+        <h3 class="text-lg font-bold mb-4 neon-header">🎯 GATE PROGRESS</h3>
+        <div id="gateProgress"></div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold neon-header">🤖 AI SUMMARY</h3>
+          <button id="summarizeBtn" class="px-4 py-2 rounded bg-rose-600 text-white text-sm font-bold hover:bg-rose-700">Generate Summary</button>
+        </div>
+        <div id="summary" class="text-sm"></div>
+      </div>
+    </div>
+  </main>
+  <script>
+    let dataCache;
+    async function load() {
+      try {
+        const res = await fetch('/.netlify/functions/proxy');
+        if (!res.ok) throw new Error('Failed to load data');
+        dataCache = await res.json();
+        render();
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+      } catch (err) {
+        document.getElementById('loading').innerHTML = `<div class="text-rose-600">Error: ${err.message}</div>`;
       }
     }
-  });
-}
 
-// Top Vendors
-function renderTopVendors(list) {
-  const ul = document.getElementById('topVendors');
-  if (!ul) return;
-  ul.innerHTML = '';
-  (list||[]).forEach(r => ul.insertAdjacentHTML('beforeend',`
-    <li class="flex justify-between items-center">
-      <span class="truncate">${r.vendor}</span>
-      <span class="font-bold">${fmtMYR(r.amount)}</span>
-    </li>
-  `));
-}
+    function render() {
+      renderGoNoGo();
+      renderProjectStage();
+      renderKPIs();
+      renderAlerts();
+      renderVendors();
+      renderGateProgress();
+    }
 
-// Gates
-function renderGates(gates) {
-  const wrap = document.getElementById('gatesWrap');
-  wrap.innerHTML='';
-  (gates||[]).forEach(g=>{
-    const pct = g.required>0 ? Math.round((g.approved/g.required)*100) : 0;
-    const card = document.createElement('div');
-    card.className='rounded border border-slate-200 p-4';
-    card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <p class="font-bold">${g.id}</p>
-        <p class="${g.blocked>0?'text-rose-600':'text-emerald-600'} font-bold">${g.blocked>0?'Blocked':'Clear'}</p>
-      </div>
-      <div class="mt-3">
-        <div class="w-full h-2 bg-slate-200 rounded overflow-hidden">
-          <div class="h-2 bg-emerald-600" style="width:${pct}%"></div>
+    function renderGoNoGo() {
+      const { goNoGo } = dataCache;
+      if (!goNoGo || !goNoGo.decision) return;
+      const banner = document.getElementById('goNoGoBanner');
+      const message = document.getElementById('goNoGoMessage');
+      const chip = document.getElementById('goNoGoChip');
+      banner.style.display = 'flex';
+      message.textContent = goNoGo.decision === 'GO' ? 'Project is GO' : 'Project is NO-GO';
+      chip.innerHTML = goNoGo.decision === 'GO' 
+        ? '<span class="badge badge-green">GO</span>' 
+        : '<span class="badge badge-red">NO-GO</span>';
+    }
+
+    function renderProjectStage() {
+      const { gates, milestones } = dataCache;
+      const container = document.getElementById('projectStage');
+      if (!gates || gates.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400">No stage data available</p>';
+        return;
+      }
+
+      const gateOrder = ['G1 Concept', 'G2 Schematic', 'G3 Design Development', 'G4 Authority Submission', 'G5 Construction Documentation', 'G6 Design Close‑out'];
+      const sortedGates = gateOrder.map(g => gates.find(gate => gate.gate === g)).filter(Boolean);
+      
+      let currentGateIndex = sortedGates.findIndex(g => g.approved < g.total);
+      if (currentGateIndex === -1) currentGateIndex = sortedGates.length - 1;
+
+      let html = '<div class="flex items-center justify-between mb-6">';
+      sortedGates.forEach((g, i) => {
+        const pct = g.total > 0 ? Math.round((g.approved / g.total) * 100) : 0;
+        const isComplete = pct === 100;
+        const isCurrent = i === currentGateIndex;
+        
+        const circleClass = isComplete ? 'gate-complete' : isCurrent ? 'gate-current' : 'gate-pending';
+        const lineClass = isComplete ? 'gate-line-complete' : 'gate-line';
+        
+        html += `
+          <div class="flex flex-col items-center flex-1">
+            <div class="gate-circle ${circleClass}">${isComplete ? '✓' : `G${i+1}`}</div>
+            <div class="text-xs mt-2 text-center font-bold">${pct}%</div>
+            <div class="text-xs text-gray-400 text-center">${g.gate.replace(/^G\d+\s*/, '')}</div>
+          </div>
+        `;
+        
+        if (i < sortedGates.length - 1) {
+          html += `<div class="gate-line ${lineClass}" style="margin: 0 0.5rem; margin-top: -2rem;"></div>`;
+        }
+      });
+      html += '</div>';
+
+      if (milestones && milestones.length > 0) {
+        const phases = {};
+        milestones.forEach(m => {
+          const phase = m.phase || 'Uncategorized';
+          if (!phases[phase]) phases[phase] = { total: 0, complete: 0, atRisk: 0 };
+          phases[phase].total++;
+          if (m.status === 'Complete') phases[phase].complete++;
+          if (m.status === 'At Risk' || m.risk === 'High') phases[phase].atRisk++;
+        });
+
+        html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">';
+        Object.entries(phases).forEach(([phase, data]) => {
+          const pct = data.total > 0 ? Math.round((data.complete / data.total) * 100) : 0;
+          html += `
+            <div class="p-3 rounded border border-gray-700">
+              <div class="text-sm font-bold mb-2">${phase}</div>
+              <div class="text-2xl font-bold mb-1">${pct}%</div>
+              <div class="text-xs text-gray-400">${data.complete} / ${data.total} milestones</div>
+              ${data.atRisk > 0 ? `<div class="text-xs risk-red mt-1">${data.atRisk} at risk</div>` : ''}
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderKPIs() {
+      const { kpis } = dataCache;
+      const container = document.getElementById('kpis');
+      container.innerHTML = '';
+      [
+        { label: 'Budget (MYR)', value: kpis.budgetMYR?.toLocaleString() || '—' },
+        { label: 'Paid to Date (MYR)', value: kpis.paidMYR?.toLocaleString() || '—' },
+        { label: 'Remaining (MYR)', value: kpis.remainingMYR?.toLocaleString() || '—' },
+        { label: 'Deliverables Complete', value: `${kpis.deliverablesApproved || 0} / ${kpis.deliverablesTotal || 0}` }
+      ].forEach(m => {
+        container.innerHTML += `
+          <div class="card">
+            <div class="metric-value">${m.value}</div>
+            <div class="metric-label">${m.label}</div>
+          </div>
+        `;
+      });
+    }
+
+    function renderAlerts() {
+      const { payments, milestones, deliverables } = dataCache;
+      const container = document.getElementById('alerts');
+      let html = '';
+
+      const overduePayments = (payments || []).filter(p => {
+        if (!p.dueDate || p.status === 'Paid') return false;
+        return new Date(p.dueDate) < new Date();
+      });
+      if (overduePayments.length > 0) {
+        html += '<div><p class="font-bold text-sm neon-header">OVERDUE PAYMENTS</p>';
+        overduePayments.slice(0, 3).forEach(p => {
+          html += `
+            <div class="alert-item flex justify-between items-center">
+              <div class="flex-1">
+                <span class="font-bold">${p.recipient || p.vendor || 'Unknown'}</span>
+                <span class="text-xs text-gray-400 ml-2">MYR ${(p.amount || 0).toLocaleString()}</span>
+                <span class="text-xs text-gray-400 ml-2">Due: ${p.dueDate || '—'}</span>
+              </div>
+              <span class="badge badge-overdue">OVERDUE</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      const atRiskMilestones = (milestones || []).filter(m => m.status === 'At Risk' || m.risk === 'High');
+      if (atRiskMilestones.length > 0) {
+        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">MILESTONES AT RISK</p>';
+        atRiskMilestones.slice(0, 3).forEach(m => {
+          const riskReason = m.riskReason || m.notes || 'Schedule pressure';
+          const shortRisk = riskReason.split(' ').slice(0, 3).join(' ');
+          html += `
+            <div class="alert-item flex justify-between items-center">
+              <div class="flex-1">
+                <span class="font-bold">${m.title || 'Unknown'}</span>
+                <span class="text-xs risk-red ml-2">${shortRisk}</span>
+              </div>
+              <span class="badge badge-red risk-red">AT RISK</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      const today = new Date();
+      const fourMonthsOut = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
+      const upcomingPayments = (payments || []).filter(p => {
+        if (!p.dueDate || p.status === 'Paid') return false;
+        const due = new Date(p.dueDate);
+        return due > today && due <= fourMonthsOut;
+      }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+      
+      if (upcomingPayments.length > 0) {
+        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">PAYMENT FORECAST (Next 4 Months)</p>';
+        const totalForecast = upcomingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        html += `<p class="text-xs text-gray-400 mb-2">Total: MYR ${totalForecast.toLocaleString()}</p>`;
+        upcomingPayments.slice(0, 4).forEach(p => {
+          html += `
+            <div class="alert-item flex justify-between items-center text-xs">
+              <span class="font-bold">${p.recipient || p.vendor || 'Unknown'}</span>
+              <span class="text-gray-400">${p.dueDate}</span>
+              <span class="font-bold">MYR ${(p.amount || 0).toLocaleString()}</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      const pendingDocs = (deliverables || []).filter(d => d.status === 'Submitted' || d.status === 'Pending');
+      if (pendingDocs.length > 0) {
+        html += '<div class="section-divider"><p class="font-bold text-sm neon-header">📥 PENDING VERIFICATION</p>';
+        pendingDocs.slice(0, 3).forEach(d => {
+          html += `
+            <div class="alert-item flex justify-between items-center">
+              <span class="font-bold">${d.title || 'Document'}</span>
+              <span class="badge badge-yellow">PENDING</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      const meetings = dataCache.meetings || [];
+      const upcomingMeetings = meetings.filter(m => m.date && new Date(m.date) >= today).sort((a, b) => new Date(a.date) - new Date(b.date));
+      const nextMeeting = upcomingMeetings[0];
+      if (nextMeeting) {
+        const statusBadge = nextMeeting.status === 'Confirmed' ? 'badge-green' : 
+                           nextMeeting.status === 'Pending' ? 'badge-yellow' : 
+                           nextMeeting.status === 'Rescheduled' ? 'badge-yellow' : 'badge-red';
+        html += `
+          <div class="section-divider">
+            <p class="font-bold text-sm neon-header">NEXT SCHEDULED MEETING</p>
+            <div class="alert-item flex justify-between items-center">
+              <div>
+                <p class="font-bold">${nextMeeting.title || 'Meeting'}</p>
+                <p class="text-xs text-gray-400">${nextMeeting.date || '—'}</p>
+              </div>
+              <span class="badge ${statusBadge}">${nextMeeting.status || 'Pending'}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html || '<p class="text-sm text-gray-400">No alerts</p>';
+    }
+
+    function renderVendors() {
+      const { topVendors } = dataCache;
+      const container = document.getElementById('vendors');
+      if (!topVendors || topVendors.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400">No vendor data</p>';
+        return;
+      }
+      container.innerHTML = topVendors.slice(0, 5).map((v, i) => `
+        <div class="vendor-row">
+          <div>
+            <div class="text-sm font-bold">${i + 1}. ${v.name || 'Unknown'}</div>
+            <div class="text-xs text-gray-400">${v.trade || '—'}</div>
+          </div>
+          <div class="text-sm font-bold">MYR ${(v.paid || 0).toLocaleString()}</div>
         </div>
-        <p class="mt-2 text-xs text-[var(--muted)]">
-          Required ${g.required} • Approved ${g.approved} • Submitted ${g.submitted ?? 0} • Missing ${g.blocked} • Milestones complete ${g.milestonesComplete}
-        </p>
-        ${typeof g.gateApprovalRate === 'number' ? `
-          <p class="mt-1 text-[10px] text-[var(--muted)]">
-            Approval rate ${(g.gateApprovalRate*100).toFixed(0)}% • Submission rate ${(g.gateSubmissionRate*100).toFixed(0)}%
-          </p>
-        ` : ''}
-      </div>
-    `;
-    wrap.appendChild(card);
-  });
-}
+      `).join('');
+    }
 
-// STATUS + DATA FLOW
-const statusEl = document.getElementById('status');
+    function renderGateProgress() {
+      const { gates } = dataCache;
+      const container = document.getElementById('gateProgress');
+      if (!gates || gates.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400">No gate data</p>';
+        return;
+      }
+      
+      const currentGate = gates.find(g => g.approved < g.total) || gates[gates.length - 1];
+      const pct = currentGate.total > 0 ? Math.round((currentGate.approved / currentGate.total) * 100) : 0;
+      
+      let html = `
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-lg font-bold">${currentGate.gate || 'Unknown'}</div>
+            <div class="text-sm text-gray-400">${currentGate.approved} / ${currentGate.total} deliverables</div>
+          </div>
+          <div class="w-full h-6 bg-gray-700 rounded-full overflow-hidden">
+            <div class="h-full bg-cyan-500 transition-all duration-500" style="width: ${pct}%"></div>
+          </div>
+          <div class="text-center text-2xl font-bold mt-2">${pct}%</div>
+        </div>
+        <div class="text-xs text-gray-400">
+          <p class="font-bold mb-1">All Gates:</p>
+      `;
+      
+      gates.forEach(g => {
+        const gPct = g.total > 0 ? Math.round((g.approved / g.total) * 100) : 0;
+        html += `
+          <div class="flex items-center justify-between py-1">
+            <span>${g.gate}</span>
+            <span class="font-bold">${gPct}%</span>
+          </div>
+        `;
+      });
+      html += '</div>';
+      
+      container.innerHTML = html;
+    }
 
-async function autoSummary() {
-  if (!dataCache) {
-    document.getElementById('summaryOut').textContent = 'No data available for summary.';
-    return;
-  }
-  try {
-    const resp = await fetch('/.netlify/functions/proxy', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ type:'summary', data: dataCache })
+    document.getElementById('summarizeBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('summarizeBtn');
+      const summary = document.getElementById('summary');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      summary.innerHTML = '<p class="text-gray-400">Generating AI summary...</p>';
+      try {
+        const res = await fetch('/.netlify/functions/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataCache)
+        });
+        if (!res.ok) throw new Error('Failed to generate summary');
+        const data = await res.json();
+        summary.innerHTML = data.summary || '<p class="text-gray-400">No summary available</p>';
+      } catch (err) {
+        summary.innerHTML = `<p class="text-rose-600">Error: ${err.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Summary';
+      }
     });
-    const out = await resp.json().catch(()=>({}));
-    document.getElementById('summaryOut').textContent = out.text || 'No response.';
-  } catch (err) {
-    document.getElementById('summaryOut').textContent = 'AI summary unavailable.';
-  }
-}
 
-async function loadData() {
-  statusEl.textContent = 'Loading…';
-  try {
-    const r = await fetch('/.netlify/functions/proxy', { headers:{'Accept':'application/json'} });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    dataCache = await r.json();
-    renderKPIs(dataCache.kpis || {});
-    renderAlerts(dataCache.alerts || { paymentsOverdue: [], paymentsUpcoming: [], deliverablesIssues: [], milestonesRisk: [] });
-    renderGoNoGo(dataCache.alerts || {});
-    renderCashflow(dataCache.cashflow || []);
-    renderGates(dataCache.gates || []);
-    renderTopVendors(dataCache.topVendors || []);
-    statusEl.textContent = '';
-  } catch (err) {
-    statusEl.textContent = `Failed to load data: ${err.message}`;
-    console.error(err);
-  }
-}
-
-document.getElementById('genSummary').addEventListener('click', autoSummary);
-
-// Boot
-loadData().then(autoSummary).catch(err=>console.error(err));
-</script>
+    load();
+  </script>
 </body>
 </html>
